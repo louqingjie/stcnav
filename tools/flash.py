@@ -222,10 +222,14 @@ def find_and_open(vid: int, pid: int):
         except Exception:  # noqa: BLE001
             pass
 
-    api = hidraw_api()
-    path = api.find(vid, pid)
-    if path:
-        return api.open(path)
+    try:
+        api = hidraw_api()
+        path = api.find(vid, pid)
+        if path:
+            return api.open(path)
+    except Exception:  # noqa: BLE001
+        # Windows 上没有 libhidapi-hidraw；找不到设备时保持返回 None。
+        pass
     return None
 
 

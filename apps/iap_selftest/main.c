@@ -3,7 +3,7 @@
  *
  * 上电只初始化 USB，不碰 IAP；主机发命令后才执行：
  *   PING        确认 USB EP1 OUT/IN 正常
- *   READ_CODE   用 __code 指针和 IAP 各读 0xFE4000 / 0xFF0000 的 16 字节并比较
+ *   READ_CODE   App 区用 __code 指针与 IAP 对比；向量区用 IAP 读 0xFF0000 是否为 0x02
  *   TEST_SECTOR 擦除/写入/回读 0xFEF000 的 512 字节
  *   RESET_ISP   写 IAP_CONTR=0x60，回 ROM ISP
  *
@@ -35,6 +35,10 @@ static __xdata unsigned char tx[STC32G_USB_HID_REPORT_SIZE];
 static unsigned char read_result;   /* bit0=App 区, bit1=向量区 */
 static unsigned char read_bad_app;
 static unsigned char read_bad_vec;
+static unsigned char read_bad_app_expected;
+static unsigned char read_bad_app_actual;
+static unsigned char read_bad_vec_expected;
+static unsigned char read_bad_vec_actual;
 static unsigned char iap_error;
 
 static unsigned char sector_ok;
@@ -52,6 +56,51 @@ static void uart_hex(unsigned char value)
     hex_text[1] = digits[value & 0x0F];
     hex_text[2] = 0;
     stc32g_uart1_write(hex_text);
+}
+
+static void log_read_code(void)
+{
+    stc32g_uart1_write("READ_CODE app=");
+    uart_hex(read_result & 0x01);
+    stc32g_uart1_write(" vec=");
+    uart_hex((read_result >> 1) & 0x01);
+    stc32g_uart1_write(" bad_app=");
+    uart_hex(read_bad_app);
+    stc32g_uart1_write(" bad_vec=");
+    uart_hex(read_bad_vec);
+    stc32g_uart1_write(" iap_err=");
+    uart_hex(iap_error);
+    if (!(read_result & 0x01))
+    {
+        stc32g_uart1_write(" app_exp=");
+        uart_hex(read_bad_app_expected);
+        stc32g_uart1_write(" app_act=");
+        uart_hex(read_bad_app_actual);
+    }
+    if (!(read_result & 0x02))
+    {
+        stc32g_uart1_write(" vec_exp=");
+        uart_hex(read_bad_vec_expected);
+        stc32g_uart1_write(" vec_act=");
+        uart_hex(read_bad_vec_actual);
+    }
+    stc32g_uart1_write("\r\n");
+}
+
+static void log_sector(void)
+{
+    stc32g_uart1_write("TEST_SECTOR ok=");
+    uart_hex(sector_ok);
+    stc32g_uart1_write(" iap_err=");
+    uart_hex(iap_error);
+    stc32g_uart1_write(" bad_idx=");
+    uart_hex((unsigned char)(sector_bad_index >> 8));
+    uart_hex((unsigned char)sector_bad_index);
+    stc32g_uart1_write(" exp=");
+    uart_hex(sector_expected);
+    stc32g_uart1_write(" act=");
+    uart_hex(sector_actual);
+    stc32g_uart1_write("\r\n");
 }
 
 static void respond(unsigned char command, unsigned char status,
@@ -80,8 +129,6 @@ static void test_read_code(void)
 {
     const unsigned char __code *code =
         (const unsigned char __code *)APP_PROBE;
-    const unsigned char __code *vector =
-        (const unsigned char __code *)VEC_PROBE;
     unsigned char index;
     unsigned char expected;
     unsigned char actual;
@@ -89,6 +136,10 @@ static void test_read_code(void)
     read_result = 0;
     read_bad_app = 0xFF;
     read_bad_vec = 0xFF;
+    read_bad_app_expected = 0;
+    read_bad_app_actual = 0;
+    read_bad_vec_expected = 0;
+    read_bad_vec_actual = 0;
     iap_error = 0;
 
     stc32g_iap_begin();
@@ -99,23 +150,27 @@ static void test_read_code(void)
         if (expected != actual)
         {
             read_bad_app = index;
+            read_bad_app_expected = expected;
+            read_bad_app_actual = actual;
             break;
         }
     }
     if (index == PROBE_SIZE)
         read_result |= 0x01;
 
-    for (index = 0; index < PROBE_SIZE; index++)
+    /*
+     * 0xFF0000 位于另一个 64K 代码段，__code 指针在当前链接模型下读不到
+     * 该段（MOVC 会落回 0xFE0000），因此用复位跳转的首字节 0x02 作判据。
+     */
+    expected = 0x02;
+    actual = stc32g_iap_read_byte(VEC_PROBE);
+    if (expected != actual)
     {
-        expected = vector[index];
-        actual = stc32g_iap_read_byte(VEC_PROBE + index);
-        if (expected != actual)
-        {
-            read_bad_vec = index;
-            break;
-        }
+        read_bad_vec = 0;
+        read_bad_vec_expected = expected;
+        read_bad_vec_actual = actual;
     }
-    if (index == PROBE_SIZE)
+    else
         read_result |= 0x02;
 
     if (stc32g_iap_failed())
@@ -243,33 +298,12 @@ static void handle_report(const unsigned char *report, unsigned char length)
     case CMD_READ_CODE:
         test_read_code();
         reply_read_code();
-        stc32g_uart1_write("READ_CODE app=");
-        uart_hex(read_result & 0x01);
-        stc32g_uart1_write(" vec=");
-        uart_hex((read_result >> 1) & 0x01);
-        stc32g_uart1_write(" bad_app=");
-        uart_hex(read_bad_app);
-        stc32g_uart1_write(" bad_vec=");
-        uart_hex(read_bad_vec);
-        stc32g_uart1_write(" iap_err=");
-        uart_hex(iap_error);
-        stc32g_uart1_write("\r\n");
+        log_read_code();
         break;
     case CMD_TEST_SECTOR:
         test_sector();
         reply_sector();
-        stc32g_uart1_write("TEST_SECTOR ok=");
-        uart_hex(sector_ok);
-        stc32g_uart1_write(" iap_err=");
-        uart_hex(iap_error);
-        stc32g_uart1_write(" bad_idx=");
-        uart_hex((unsigned char)(sector_bad_index >> 8));
-        uart_hex((unsigned char)sector_bad_index);
-        stc32g_uart1_write(" exp=");
-        uart_hex(sector_expected);
-        stc32g_uart1_write(" act=");
-        uart_hex(sector_actual);
-        stc32g_uart1_write("\r\n");
+        log_sector();
         break;
     case CMD_RESET_ISP:
         respond(CMD_RESET_ISP, 0, 0, 0);
@@ -284,19 +318,25 @@ static void handle_report(const unsigned char *report, unsigned char length)
 
 void app_main(void)
 {
-    unsigned char length;
+    unsigned char sector_tested = 0;
 
     board_init();
-    stc32g_uart1_init(115200UL, 1);
-    stc32g_gpio_set_mode(2, 0, STC32G_GPIO_MODE_PUSH_PULL);
+    stc32g_uart1_init(115200UL, 0);
     stc32g_uart1_write("IAP SELFTEST READY\r\n");
-    stc32g_usb_hid_init();
 
     for (;;)
     {
-        length = stc32g_usb_hid_read(rx);
-        if (length)
-            handle_report(rx, length);
+        test_read_code();
+        log_read_code();
+
+        if (!sector_tested)
+        {
+            test_sector();
+            log_sector();
+            sector_tested = 1;
+        }
+
+        ms_delay(1000);
     }
 }
 

@@ -56,16 +56,36 @@ void enable_global_irq(void)
     EA = 1;
 }
 
-/* 粗略微秒延时：按 35 MHz、每轮约 8 个系统时钟估算。 */
+/*
+ * 微秒延时：每轮 20 个 NOP，加循环开销后约 1 µs（35 MHz，1T）。
+ * 原 volatile 循环在 MCS251 上实测慢约 4.7 倍，改为固定 NOP 校准。
+ */
 void us_delay(unsigned int us)
 {
-    volatile unsigned int i;
-
     while (us--)
     {
-        for (i = 0; i < (FOSC / 1000000UL / 8); i++)
-        {
-        }
+        __asm
+            nop
+            nop
+            nop
+            nop
+            nop
+            nop
+            nop
+            nop
+            nop
+            nop
+            nop
+            nop
+            nop
+            nop
+            nop
+            nop
+            nop
+            nop
+            nop
+            nop
+        __endasm;
     }
 }
 
