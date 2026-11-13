@@ -1,0 +1,156 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build: 选择 app",
+      "type": "shell",
+      "command": "python3",
+      "args": ["tools/build.py", "--app", "${input:app}"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": [],
+      "group": { "kind": "build", "isDefault": true },
+      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true }
+    },
+    {
+      "label": "build: 全部 app",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-c",
+        "for app in hello_uart timer_irq dpXL_test freertos_coop freertos_blinky usb_hid_isp iap_selftest bootloader; do python3 tools/build.py --app \"$app\" --clean || exit 1; done"
+      ],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true }
+    },
+    {
+      "label": "build: bootloader",
+      "type": "shell",
+      "command": "python3",
+      "args": ["tools/build.py", "--app", "bootloader", "--clean"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "build: usb_hid_isp",
+      "type": "shell",
+      "command": "python3",
+      "args": ["tools/build.py", "--app", "usb_hid_isp", "--clean"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "build: iap_selftest",
+      "type": "shell",
+      "command": "python3",
+      "args": ["tools/build.py", "--app", "iap_selftest", "--clean"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "qemu: 选择 app",
+      "type": "shell",
+      "command": "python3",
+      "args": ["tools/build.py", "--app", "${input:app}", "--qemu"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true }
+    },
+    {
+      "label": "flash: ROM ISP",
+      "type": "shell",
+      "command": "python3",
+      "args": ["tools/flash.py", "${input:hex}"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true }
+    },
+    {
+      "label": "flash: ROM ISP (hot reset)",
+      "type": "shell",
+      "command": "python3",
+      "args": ["tools/flash.py", "--hot", "${input:hex}"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true }
+    },
+    {
+      "label": "flash: HID Bootloader (enter + update)",
+      "type": "shell",
+      "command": "python3",
+      "args": ["tools/flash_boot.py", "--enter", "${input:hex}"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true }
+    },
+    {
+      "label": "flash: HID Bootloader (probe IAP)",
+      "type": "shell",
+      "command": "python3",
+      "args": ["tools/flash_boot.py", "--probe"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true }
+    },
+    {
+      "label": "flash: Bootloader -> ROM ISP",
+      "type": "shell",
+      "command": "python3",
+      "args": ["tools/flash_boot.py", "--isp"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true }
+    },
+    {
+      "label": "flash: IAP self-test (ROM ISP)",
+      "type": "shell",
+      "command": "python3",
+      "args": ["tools/flash.py", "build/iap_selftest/iap_selftest.hex"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true }
+    },
+    {
+      "label": "iap: 自检 (ping/read/test)",
+      "type": "shell",
+      "command": "python3",
+      "args": ["tools/iap_selftest.py", "--all"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true }
+    },
+    {
+      "label": "iap: 复位到 ROM ISP",
+      "type": "shell",
+      "command": "python3",
+      "args": ["tools/iap_selftest.py", "--reset-isp"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "app",
+      "type": "pickString",
+      "description": "选择应用",
+      "options": [
+        "hello_uart",
+        "timer_irq",
+        "dpXL_test",
+        "freertos_coop",
+        "freertos_blinky",
+        "usb_hid_isp",
+        "iap_selftest",
+        "bootloader"
+      ],
+      "default": "usb_hid_isp"
+    },
+    {
+      "id": "hex",
+      "type": "promptString",
+      "description": "HEX 文件路径",
+      "default": "build/usb_hid_isp/usb_hid_isp.hex"
+    }
+  ]
+}

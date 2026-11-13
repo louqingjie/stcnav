@@ -100,6 +100,16 @@
       "free_rtos": false,
       "code_start": "0xFE0000",
       "code_end": "0xFE3DFF"
+    },
+    "iap_selftest": {
+      "sources": [
+        "apps/iap_selftest/main.c",
+        "libs/stc32g/hal/src/stc32g_usb_hid.c",
+        "libs/stc32g/hal/src/stc32g_iap.c"
+      ],
+      "free_rtos": false,
+      "code_start": "0xFE4000",
+      "code_end": "0xFEFFFF"
     }
   },
   "per_app_cflags": {
@@ -107,6 +117,10 @@
     "bootloader": [
       "-DSTC32G_USB_HID_PID=0xFF02",
       "-DSTC32G_USB_HID_PRODUCT=\"stcnav bootloader\""
+    ],
+    "iap_selftest": [
+      "-DSTC32G_USB_HID_PID=0xFF03",
+      "-DSTC32G_USB_HID_PRODUCT=\"stcnav iap test\""
     ]
   },
   "per_app_ldflags": {
