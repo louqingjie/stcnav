@@ -1,0 +1,9 @@
+# STC32G ROM USB-ISP（VID:PID 34BF:1001）
+# 安装：
+#   sudo cp tools/99-stc32g-isp.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules
+#   sudo udevadm trigger
+# 然后给主控板断电重新上电。
+
+SUBSYSTEM=="usb", ATTR{idVendor}=="34bf", ATTR{idProduct}=="1001", MODE="0666"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="34bf", ATTRS{idProduct}=="1001", MODE="0666", TAG+="uaccess"

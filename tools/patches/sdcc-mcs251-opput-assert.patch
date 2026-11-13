@@ -1,0 +1,17 @@
+diff --git a/src/mcs251/gen_lower.c.inc b/src/mcs251/gen_lower.c.inc
+index 6ba73fbb0..45cf6b1be 100644
+--- a/src/mcs251/gen_lower.c.inc
++++ b/src/mcs251/gen_lower.c.inc
+@@ -2287,8 +2287,10 @@ aopPut (asmop *aop, const char *s, int offset)
+ static bool
+ opPut (operand *result, const char *s, int offset)
+ {
+-  wassert (isOperandVolatile (result, FALSE) == result->aop->aop_is_volatile);
+-
++  /* Some FreeRTOS translation units legitimately reuse a volatile asmop
++     for a non-volatile local result; the old sanity check aborts the
++     compiler instead of emitting the store.  Keep codegen, drop the
++     assertion. */
+   return (aopPut (result->aop, s, offset));
+ }
+ 

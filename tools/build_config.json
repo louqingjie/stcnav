@@ -1,0 +1,119 @@
+{
+  "toolchain": {
+    "sdcc": ".toolchain/sdcc/bin/sdcc",
+    "include_dirs": [
+      ".toolchain/sdcc/include",
+      ".toolchain/sdcc/include/mcs51"
+    ],
+    "lib_dir": ".toolchain/sdcc/share/sdcc/lib/mcs251-large-stack-auto",
+    "libraries": [
+      "mcs251.lib",
+      "libsdcc.lib",
+      "liblong.lib",
+      "libint.lib",
+      "libfloat.lib",
+      "liblonglong.lib"
+    ]
+  },
+  "cflags": [
+    "-mmcs251",
+    "--model-large",
+    "--stack-auto",
+    "--opt-code-size",
+    "--constseg",
+    "CSEG"
+  ],
+  "ldflags": [
+    "-mmcs251",
+    "--model-large",
+    "--stack-auto",
+    "--constseg",
+    "CSEG",
+    "--nostdlib",
+    "--iram-size",
+    "0x1000",
+    "--xram-loc",
+    "0x010000",
+    "--xram-size",
+    "0x2000",
+    "--code-loc",
+    "0xff0000",
+    "-Wl-m"
+  ],
+  "include_dirs": [
+    "libs/stc32g/include",
+    "libs/stc32g/startup",
+    "libs/stc32g/hal/inc",
+    "libs/freertos-port",
+    "third_party/FreeRTOS-Kernel/include"
+  ],
+  "library_sources": [
+    "libs/stc32g/startup/startup.c",
+    "libs/stc32g/hal/src/stc32g_gpio.c",
+    "libs/stc32g/hal/src/stc32g_uart.c",
+    "libs/stc32g/hal/src/stc32g_timer.c"
+  ],
+  "kernel_sources": [
+    "third_party/FreeRTOS-Kernel/tasks.c",
+    "third_party/FreeRTOS-Kernel/queue.c",
+    "third_party/FreeRTOS-Kernel/list.c",
+    "third_party/FreeRTOS-Kernel/portable/MemMang/heap_1.c"
+  ],
+  "freertos_sources": [
+    "libs/freertos-port/port.c"
+  ],
+  "apps": {
+    "hello_uart": {
+      "sources": ["apps/hello_uart/main.c"],
+      "free_rtos": false
+    },
+    "freertos_coop": {
+      "sources": ["apps/freertos_coop/main.c"],
+      "free_rtos": true
+    },
+    "timer_irq": {
+      "sources": ["apps/timer_irq/main.c"],
+      "free_rtos": false
+    },
+    "dpXL_test": {
+      "sources": ["apps/dpXL_test/main.c"],
+      "free_rtos": false
+    },
+    "freertos_blinky": {
+      "sources": ["apps/freertos_blinky/main.c"],
+      "free_rtos": true
+    },
+    "usb_hid_isp": {
+      "sources": [
+        "apps/usb_hid_isp/main.c",
+        "libs/stc32g/hal/src/stc32g_usb_hid.c",
+        "libs/stc32g/hal/src/stc32g_iap.c"
+      ],
+      "free_rtos": false
+    },
+    "bootloader": {
+      "sources": [
+        "apps/bootloader/main.c",
+        "libs/stc32g/hal/src/stc32g_usb_hid.c",
+        "libs/stc32g/hal/src/stc32g_iap.c"
+      ],
+      "free_rtos": false,
+      "code_start": "0xFE0000",
+      "code_end": "0xFE3DFF"
+    }
+  },
+  "per_app_cflags": {
+    "freertos_coop": ["-DconfigUSE_PREEMPTION=0"],
+    "bootloader": [
+      "-DSTC32G_USB_HID_PID=0xFF02",
+      "-DSTC32G_USB_HID_PRODUCT=\"stcnav bootloader\""
+    ]
+  },
+  "per_app_ldflags": {
+    "bootloader": ["-Wl-b GSINIT0=0xfe0000"]
+  },
+  "per_file_cflags": {
+    "port.c": ["--opt-code-speed"],
+    "stc32g_timer.c": ["--opt-code-speed"]
+  }
+}

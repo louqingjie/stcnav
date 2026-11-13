@@ -1,2 +1,15 @@
 /.screenshots
 /.trae
+/build/
+/.toolchain/
+/third_party/qemu/
+*.hex
+*.rel
+*.map
+*.asm
+!libs/freertos-port/portasm.asm
+*.lst
+*.sym
+*.mem
+__pycache__/
+*.pyc
