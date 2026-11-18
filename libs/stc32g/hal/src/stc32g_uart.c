@@ -33,7 +33,7 @@ static void uart1_config_pins(unsigned char group)
     P_SW1 = (unsigned char)((P_SW1 & 0x3F) | ((group & 0x03) << 6));
 }
 
-void stc32g_uart1_init(unsigned long baud, unsigned char pin_group)
+void uart1_init(unsigned long baud, unsigned char pin_group)
 {
     unsigned int reload;
 
@@ -55,7 +55,7 @@ void stc32g_uart1_init(unsigned long baud, unsigned char pin_group)
     RI = 0;
 }
 
-void stc32g_uart1_write_byte(unsigned char data)
+void uart1_write_byte(unsigned char data)
 {
     SBUF = data;
     while (!TI)
@@ -64,11 +64,11 @@ void stc32g_uart1_write_byte(unsigned char data)
     TI = 0;
 }
 
-void stc32g_uart1_write(const char *text)
+void uart1_write(const char *text)
 {
     while (*text)
     {
-        stc32g_uart1_write_byte((unsigned char)*text);
+        uart1_write_byte((unsigned char)*text);
         text++;
     }
 }

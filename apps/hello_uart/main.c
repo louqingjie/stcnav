@@ -8,9 +8,9 @@
 void main(void)
 {
     board_init();
-    stc32g_uart1_init(115200UL, 0);
+    uart1_init(115200UL, 0);
 
-    stc32g_uart1_write("PASS\r\n");
+    uart1_write("PASS\r\n");
 
     while (1)
     {

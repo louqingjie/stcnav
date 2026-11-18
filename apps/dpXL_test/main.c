@@ -30,12 +30,12 @@ void main(void)
     unsigned char value;
 
     board_init();
-    stc32g_uart1_init(115200UL, 0);
-    stc32g_timer0_init(TIMER0_RELOAD);
+    uart1_init(115200UL, 0);
+    timer0_init(TIMER0_RELOAD);
 
     ET0 = 1;
     EA = 1;
-    stc32g_timer0_start();
+    timer0_start();
 
     while (1)
     {
@@ -52,12 +52,12 @@ void main(void)
 
         if (failures)
         {
-            stc32g_uart1_write("FAIL\r\n");
+            uart1_write("FAIL\r\n");
             failures = 0;
         }
         else
         {
-            stc32g_uart1_write("PASS\r\n");
+            uart1_write("PASS\r\n");
         }
     }
 }

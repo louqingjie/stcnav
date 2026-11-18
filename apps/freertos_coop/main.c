@@ -16,11 +16,11 @@ static void task_a(void *pvParameters)
 
     for (;;)
     {
-        stc32g_uart1_write("A");
+        uart1_write("A");
         rounds++;
         if (rounds >= 10)
         {
-            stc32g_uart1_write("\r\nPASS\r\n");
+            uart1_write("\r\nPASS\r\n");
             rounds = 0;
         }
         taskYIELD();
@@ -33,7 +33,7 @@ static void task_b(void *pvParameters)
 
     for (;;)
     {
-        stc32g_uart1_write("B");
+        uart1_write("B");
         taskYIELD();
     }
 }
@@ -41,7 +41,7 @@ static void task_b(void *pvParameters)
 void app_main(void)
 {
     board_init();
-    stc32g_uart1_init(115200UL, 0);
+    uart1_init(115200UL, 0);
 
     xTaskCreate(task_a, "A", configMINIMAL_STACK_SIZE, 0, 1, 0);
     xTaskCreate(task_b, "B", configMINIMAL_STACK_SIZE, 0, 1, 0);

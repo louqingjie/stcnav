@@ -29,8 +29,8 @@
 #define TEST_SECTOR 0xFEF000UL
 #define TEST_SIZE 512
 
-static __xdata unsigned char rx[STC32G_USB_HID_REPORT_SIZE];
-static __xdata unsigned char tx[STC32G_USB_HID_REPORT_SIZE];
+static __xdata unsigned char rx[USB_HID_REPORT_SIZE];
+static __xdata unsigned char tx[USB_HID_REPORT_SIZE];
 
 static unsigned char read_result;   /* bit0=App 区, bit1=向量区 */
 static unsigned char read_bad_app;
@@ -55,52 +55,52 @@ static void uart_hex(unsigned char value)
     hex_text[0] = digits[value >> 4];
     hex_text[1] = digits[value & 0x0F];
     hex_text[2] = 0;
-    stc32g_uart1_write(hex_text);
+    uart1_write(hex_text);
 }
 
 static void log_read_code(void)
 {
-    stc32g_uart1_write("READ_CODE app=");
+    uart1_write("READ_CODE app=");
     uart_hex(read_result & 0x01);
-    stc32g_uart1_write(" vec=");
+    uart1_write(" vec=");
     uart_hex((read_result >> 1) & 0x01);
-    stc32g_uart1_write(" bad_app=");
+    uart1_write(" bad_app=");
     uart_hex(read_bad_app);
-    stc32g_uart1_write(" bad_vec=");
+    uart1_write(" bad_vec=");
     uart_hex(read_bad_vec);
-    stc32g_uart1_write(" iap_err=");
+    uart1_write(" iap_err=");
     uart_hex(iap_error);
     if (!(read_result & 0x01))
     {
-        stc32g_uart1_write(" app_exp=");
+        uart1_write(" app_exp=");
         uart_hex(read_bad_app_expected);
-        stc32g_uart1_write(" app_act=");
+        uart1_write(" app_act=");
         uart_hex(read_bad_app_actual);
     }
     if (!(read_result & 0x02))
     {
-        stc32g_uart1_write(" vec_exp=");
+        uart1_write(" vec_exp=");
         uart_hex(read_bad_vec_expected);
-        stc32g_uart1_write(" vec_act=");
+        uart1_write(" vec_act=");
         uart_hex(read_bad_vec_actual);
     }
-    stc32g_uart1_write("\r\n");
+    uart1_write("\r\n");
 }
 
 static void log_sector(void)
 {
-    stc32g_uart1_write("TEST_SECTOR ok=");
+    uart1_write("TEST_SECTOR ok=");
     uart_hex(sector_ok);
-    stc32g_uart1_write(" iap_err=");
+    uart1_write(" iap_err=");
     uart_hex(iap_error);
-    stc32g_uart1_write(" bad_idx=");
+    uart1_write(" bad_idx=");
     uart_hex((unsigned char)(sector_bad_index >> 8));
     uart_hex((unsigned char)sector_bad_index);
-    stc32g_uart1_write(" exp=");
+    uart1_write(" exp=");
     uart_hex(sector_expected);
-    stc32g_uart1_write(" act=");
+    uart1_write(" act=");
     uart_hex(sector_actual);
-    stc32g_uart1_write("\r\n");
+    uart1_write("\r\n");
 }
 
 static void respond(unsigned char command, unsigned char status,
@@ -108,7 +108,7 @@ static void respond(unsigned char command, unsigned char status,
 {
     unsigned char index;
 
-    for (index = 0; index < STC32G_USB_HID_REPORT_SIZE; index++)
+    for (index = 0; index < USB_HID_REPORT_SIZE; index++)
         tx[index] = 0;
     tx[0] = 'S';
     tx[1] = 'T';
@@ -119,10 +119,10 @@ static void respond(unsigned char command, unsigned char status,
     tx[6] = PROTO_VERSION;
     tx[7] = command;
     tx[8] = status;
-    for (index = 0; index < length && (unsigned char)(9 + index) < STC32G_USB_HID_REPORT_SIZE; index++)
+    for (index = 0; index < length && (unsigned char)(9 + index) < USB_HID_REPORT_SIZE; index++)
         tx[9 + index] = data[index];
 
-    stc32g_usb_hid_write(tx, STC32G_USB_HID_REPORT_SIZE);
+    usb_hid_write(tx, USB_HID_REPORT_SIZE);
 }
 
 static void test_read_code(void)
@@ -142,11 +142,11 @@ static void test_read_code(void)
     read_bad_vec_actual = 0;
     iap_error = 0;
 
-    stc32g_iap_begin();
+    iap_begin();
     for (index = 0; index < PROBE_SIZE; index++)
     {
         expected = code[index];
-        actual = stc32g_iap_read_byte(APP_PROBE + index);
+        actual = iap_read_byte(APP_PROBE + index);
         if (expected != actual)
         {
             read_bad_app = index;
@@ -163,7 +163,7 @@ static void test_read_code(void)
      * 该段（MOVC 会落回 0xFE0000），因此用复位跳转的首字节 0x02 作判据。
      */
     expected = 0x02;
-    actual = stc32g_iap_read_byte(VEC_PROBE);
+    actual = iap_read_byte(VEC_PROBE);
     if (expected != actual)
     {
         read_bad_vec = 0;
@@ -173,12 +173,12 @@ static void test_read_code(void)
     else
         read_result |= 0x02;
 
-    if (stc32g_iap_failed())
+    if (iap_failed())
     {
         iap_error = 1;
         read_result = 0;
     }
-    stc32g_iap_end();
+    iap_end();
 }
 
 static void test_sector(void)
@@ -193,22 +193,22 @@ static void test_sector(void)
     sector_actual = 0;
     iap_error = 0;
 
-    stc32g_iap_begin();
+    iap_begin();
 
-    if (stc32g_iap_erase_sector(TEST_SECTOR))
+    if (iap_erase_sector(TEST_SECTOR))
     {
         iap_error = 1;
-        stc32g_iap_end();
+        iap_end();
         return;
     }
 
     for (index = 0; index < TEST_SIZE; index++)
     {
         expected = (unsigned char)(index ^ 0x5A);
-        if (stc32g_iap_write_byte(TEST_SECTOR + index, expected))
+        if (iap_write_byte(TEST_SECTOR + index, expected))
         {
             iap_error = 1;
-            stc32g_iap_end();
+            iap_end();
             return;
         }
     }
@@ -216,26 +216,26 @@ static void test_sector(void)
     for (index = 0; index < TEST_SIZE; index++)
     {
         expected = (unsigned char)(index ^ 0x5A);
-        actual = stc32g_iap_read_byte(TEST_SECTOR + index);
+        actual = iap_read_byte(TEST_SECTOR + index);
         if (expected != actual)
         {
             sector_bad_index = index;
             sector_expected = expected;
             sector_actual = actual;
-            stc32g_iap_end();
+            iap_end();
             return;
         }
     }
 
-    if (stc32g_iap_failed())
+    if (iap_failed())
     {
         iap_error = 1;
-        stc32g_iap_end();
+        iap_end();
         return;
     }
 
     sector_ok = 1;
-    stc32g_iap_end();
+    iap_end();
 }
 
 static void reply_read_code(void)
@@ -291,9 +291,9 @@ static void handle_report(const unsigned char *report, unsigned char length)
     switch (report[7])
     {
     case CMD_PING:
-        stc32g_gpio_write(2, 0, 1);
+        gpio_write(2, 0, 1);
         respond(CMD_PING, 0, 0, 0);
-        stc32g_gpio_write(2, 0, 0);
+        gpio_write(2, 0, 0);
         break;
     case CMD_READ_CODE:
         test_read_code();
@@ -308,7 +308,7 @@ static void handle_report(const unsigned char *report, unsigned char length)
     case CMD_RESET_ISP:
         respond(CMD_RESET_ISP, 0, 0, 0);
         ms_delay(50);
-        stc32g_iap_reset_to_isp();
+        iap_reset_to_isp();
         break;
     default:
         respond(report[7], 1, 0, 0);
@@ -321,8 +321,8 @@ void app_main(void)
     unsigned char sector_tested = 0;
 
     board_init();
-    stc32g_uart1_init(115200UL, 0);
-    stc32g_uart1_write("IAP SELFTEST READY\r\n");
+    uart1_init(115200UL, 0);
+    uart1_write("IAP SELFTEST READY\r\n");
 
     for (;;)
     {

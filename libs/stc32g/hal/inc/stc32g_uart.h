@@ -7,8 +7,8 @@
 #define STCNAV_STC32G_UART_H
 
 /* pin_group: 0=P3.0/P3.1, 1=P3.6/P3.7, 2=P1.6/P1.7, 3=P4.3/P4.4 */
-void stc32g_uart1_init(unsigned long baud, unsigned char pin_group);
-void stc32g_uart1_write_byte(unsigned char data);
-void stc32g_uart1_write(const char *text);
+void uart1_init(unsigned long baud, unsigned char pin_group);
+void uart1_write_byte(unsigned char data);
+void uart1_write(const char *text);
 
 #endif

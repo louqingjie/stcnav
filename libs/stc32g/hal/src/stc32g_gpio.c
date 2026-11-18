@@ -28,7 +28,7 @@
             port &= (unsigned char)~mask;            \
     } while (0)
 
-void stc32g_gpio_set_mode(unsigned char port, unsigned char pin, stc32g_gpio_mode_t mode)
+void gpio_set_mode(unsigned char port, unsigned char pin, gpio_mode_t mode)
 {
     unsigned char mask;
     unsigned char m1;
@@ -55,7 +55,7 @@ void stc32g_gpio_set_mode(unsigned char port, unsigned char pin, stc32g_gpio_mod
     }
 }
 
-void stc32g_gpio_write(unsigned char port, unsigned char pin, unsigned char level)
+void gpio_write(unsigned char port, unsigned char pin, unsigned char level)
 {
     unsigned char mask;
 
@@ -78,7 +78,7 @@ void stc32g_gpio_write(unsigned char port, unsigned char pin, unsigned char leve
     }
 }
 
-unsigned char stc32g_gpio_read(unsigned char port, unsigned char pin)
+unsigned char gpio_read(unsigned char port, unsigned char pin)
 {
     unsigned char mask;
 

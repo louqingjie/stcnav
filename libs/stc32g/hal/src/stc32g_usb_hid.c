@@ -85,7 +85,7 @@ static unsigned char ep0_report[64];
 static unsigned char string_buffer[34];
 
 /* EP1 OUT 收到的报告，供 read() 取走。放在 XDATA，避免占用 EDATA 栈。 */
-static __xdata unsigned char ep1_out[STC32G_USB_HID_REPORT_SIZE];
+static __xdata unsigned char ep1_out[USB_HID_REPORT_SIZE];
 static unsigned char ep1_out_length;
 static unsigned char ep1_out_ready;
 
@@ -141,7 +141,7 @@ static void usb_fifo_write_padded(unsigned char endpoint, const unsigned char *b
     USBADR = (unsigned char)(USB_FIFO0 + endpoint);
     for (index = 0; index < length; index++)
         USBDAT = buffer[index];
-    for (; index < STC32G_USB_HID_REPORT_SIZE; index++)
+    for (; index < USB_HID_REPORT_SIZE; index++)
         USBDAT = 0;
 }
 
@@ -347,7 +347,7 @@ static void usb_handle_ep0(void)
     usb_handle_setup(setup);
 }
 
-void stc32g_usb_hid_init(void)
+void usb_hid_init(void)
 {
     unsigned int timeout = 0;
     unsigned int delay;
@@ -403,8 +403,8 @@ static void usb_process_events(void)
     {
         usb_write(USB_INDEX, 1);
         length = usb_read(USB_OUTCOUNT1);
-        if (length > STC32G_USB_HID_REPORT_SIZE)
-            length = STC32G_USB_HID_REPORT_SIZE;
+        if (length > USB_HID_REPORT_SIZE)
+            length = USB_HID_REPORT_SIZE;
         usb_fifo_read(1, ep1_out, length);
         usb_write(USB_OUTCSR1, 0x00); /* 清 OPRDY */
         ep1_out_length = length;
@@ -419,7 +419,7 @@ static void usb_process_events(void)
         usb_handle_ep0();
 }
 
-unsigned char stc32g_usb_hid_read(unsigned char *buffer)
+unsigned char usb_hid_read(unsigned char *buffer)
 {
     unsigned char index;
     unsigned char length;
@@ -435,15 +435,15 @@ unsigned char stc32g_usb_hid_read(unsigned char *buffer)
     return length;
 }
 
-void stc32g_usb_hid_write(const unsigned char *buffer, unsigned char length)
+void usb_hid_write(const unsigned char *buffer, unsigned char length)
 {
     unsigned char index;
     unsigned char csr;
 
     if (!usb_ready)
         return;
-    if (length > STC32G_USB_HID_REPORT_SIZE)
-        length = STC32G_USB_HID_REPORT_SIZE;
+    if (length > USB_HID_REPORT_SIZE)
+        length = USB_HID_REPORT_SIZE;
 
     usb_write(USB_INDEX, 1);
 
@@ -461,10 +461,10 @@ void stc32g_usb_hid_write(const unsigned char *buffer, unsigned char length)
     usb_write(USB_INCSR1, 0x01); /* IPRDY */
 }
 
-unsigned char stc32g_usb_hid_poll(void)
+unsigned char usb_hid_poll(void)
 {
     unsigned char command;
-    unsigned char buffer[STC32G_USB_HID_REPORT_SIZE];
+    unsigned char buffer[USB_HID_REPORT_SIZE];
 
     usb_process_events();
 
@@ -475,13 +475,13 @@ unsigned char stc32g_usb_hid_poll(void)
         return command;
     }
 
-    command = stc32g_usb_hid_read(buffer);
+    command = usb_hid_read(buffer);
     if (command)
         command = usb_command_code(buffer, command);
     return command;
 }
 
-void stc32g_usb_hid_disconnect(void)
+void usb_hid_disconnect(void)
 {
     USBCON = 0x80; /* 保留 ENUSB，关闭上拉 */
     usb_ready = 0;

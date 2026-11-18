@@ -6,8 +6,8 @@
 #ifndef STCNAV_STC32G_TIMER_H
 #define STCNAV_STC32G_TIMER_H
 
-void stc32g_timer0_init(unsigned int reload);
-void stc32g_timer0_start(void);
-void stc32g_timer0_stop(void);
+void timer0_init(unsigned int reload);
+void timer0_start(void);
+void timer0_stop(void);
 
 #endif

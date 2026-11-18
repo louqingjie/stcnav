@@ -17,7 +17,7 @@
       "command": "bash",
       "args": [
         "-c",
-        "for app in hello_uart timer_irq dpXL_test freertos_coop freertos_blinky usb_hid_isp iap_selftest bootloader; do python3 tools/build.py --app \"$app\" --clean || exit 1; done"
+        "for app in hello_uart mpu6050_uart mpu6050_dual_vofa vehicle vehicle_debug vehicle_tune vehicle_tune_hid timer_irq dpXL_test freertos_coop freertos_blinky usb_hid_isp iap_selftest bootloader; do python3 tools/build.py --app \"$app\" --clean || exit 1; done"
       ],
       "options": { "cwd": "${workspaceFolder}" },
       "problemMatcher": [],
@@ -136,6 +136,12 @@
       "description": "选择应用",
       "options": [
         "hello_uart",
+        "mpu6050_uart",
+        "mpu6050_dual_vofa",
+        "vehicle",
+        "vehicle_debug",
+        "vehicle_tune",
+        "vehicle_tune_hid",
         "timer_irq",
         "dpXL_test",
         "freertos_coop",

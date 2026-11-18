@@ -6,7 +6,7 @@
 #include "stc32g_timer.h"
 #include "common.h"
 
-void stc32g_timer0_init(unsigned int reload)
+void timer0_init(unsigned int reload)
 {
     TR0 = 0;
     TMOD = (unsigned char)(TMOD & 0xF0); /* Timer0 模式 0：16 位自动重载 */
@@ -15,12 +15,12 @@ void stc32g_timer0_init(unsigned int reload)
     TL0 = (unsigned char)(reload & 0xFF);
 }
 
-void stc32g_timer0_start(void)
+void timer0_start(void)
 {
     TR0 = 1;
 }
 
-void stc32g_timer0_stop(void)
+void timer0_stop(void)
 {
     TR0 = 0;
 }

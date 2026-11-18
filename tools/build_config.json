@@ -67,6 +67,66 @@
       "sources": ["apps/hello_uart/main.c"],
       "free_rtos": false
     },
+    "mpu6050_uart": {
+      "sources": [
+        "apps/mpu6050_uart/main.c",
+        "libs/stc32g/hal/src/stc32g_i2c.c"
+      ],
+      "free_rtos": false
+    },
+    "mpu6050_dual_vofa": {
+      "sources": [
+        "apps/mpu6050_uart/main.c",
+        "libs/stc32g/hal/src/stc32g_i2c.c"
+      ],
+      "free_rtos": false
+    },
+    "vehicle": {
+      "sources": [
+        "apps/vehicle/main.c",
+        "apps/vehicle/remote.c",
+        "apps/vehicle/expansion.c",
+        "apps/vehicle/imu.c",
+        "apps/vehicle/chassis.c",
+        "apps/vehicle/gimbal.c",
+        "libs/stc32g/hal/src/stc32g_i2c.c"
+      ],
+      "free_rtos": false
+    },
+    "vehicle_debug": {
+      "sources": [
+        "apps/vehicle/main.c",
+        "apps/vehicle/remote.c",
+        "apps/vehicle/expansion.c",
+        "apps/vehicle/imu.c",
+        "apps/vehicle/chassis.c",
+        "apps/vehicle/gimbal.c",
+        "libs/stc32g/hal/src/stc32g_i2c.c"
+      ],
+      "free_rtos": false
+    },
+    "vehicle_tune": {
+      "sources": [
+        "apps/vehicle/tune_main.c",
+        "apps/vehicle/expansion.c",
+        "apps/vehicle/imu.c",
+        "apps/vehicle/gimbal.c",
+        "libs/stc32g/hal/src/stc32g_i2c.c",
+        "libs/stc32g/hal/src/stc32g_uart2.c"
+      ],
+      "free_rtos": false
+    },
+    "vehicle_tune_hid": {
+      "sources": [
+        "apps/vehicle/tune_hid_main.c",
+        "apps/vehicle/expansion.c",
+        "apps/vehicle/imu.c",
+        "apps/vehicle/gimbal.c",
+        "libs/stc32g/hal/src/stc32g_i2c.c",
+        "libs/stc32g/hal/src/stc32g_usb_hid.c"
+      ],
+      "free_rtos": false
+    },
     "freertos_coop": {
       "sources": ["apps/freertos_coop/main.c"],
       "free_rtos": true
@@ -113,6 +173,11 @@
     }
   },
   "per_app_cflags": {
+    "mpu6050_dual_vofa": [
+      "-DMPU6050_COUNT=2",
+      "-DMPU6050_UART_GROUP=3"
+    ],
+    "vehicle_debug": ["-DVEHICLE_DEBUG=1"],
     "freertos_coop": ["-DconfigUSE_PREEMPTION=0"],
     "bootloader": [
       "-DSTC32G_USB_HID_PID=0xFF02",

@@ -36,7 +36,7 @@ static void consumer(void *pvParameters)
     {
         if (xQueueReceive(queue, &value, portMAX_DELAY) == pdPASS)
         {
-            stc32g_gpio_write(2, 0, (unsigned char)(value & 0x01));
+            gpio_write(2, 0, (unsigned char)(value & 0x01));
         }
     }
 }
@@ -46,7 +46,7 @@ static void reporter(void *pvParameters)
     (void)pvParameters;
     for (;;)
     {
-        stc32g_uart1_write("PASS\r\n");
+        uart1_write("PASS\r\n");
         vTaskDelay(1000);
     }
 }
@@ -54,12 +54,12 @@ static void reporter(void *pvParameters)
 void app_main(void)
 {
     board_init();
-    stc32g_uart1_init(115200UL, 0);
-    stc32g_gpio_set_mode(2, 0, STC32G_GPIO_MODE_PUSH_PULL);
+    uart1_init(115200UL, 0);
+    gpio_set_mode(2, 0, GPIO_MODE_PUSH_PULL);
     queue = xQueueCreateStatic(4, sizeof(unsigned char), queue_storage, &queue_buffer);
     if (queue == 0)
     {
-        stc32g_uart1_write("FAIL\r\n");
+        uart1_write("FAIL\r\n");
         for (;;)
         {
         }

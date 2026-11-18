@@ -17,7 +17,7 @@ static unsigned char iap_error;
 
 static void iap_set_address(unsigned long address)
 {
-    unsigned long offset = address - STC32G_IAP_BASE;
+    unsigned long offset = address - IAP_BASE;
 
     IAP_ADDRE = (unsigned char)(offset >> 16);
     IAP_ADDRH = (unsigned char)(offset >> 8);
@@ -43,7 +43,7 @@ static unsigned char iap_execute(void)
     return 0;
 }
 
-void stc32g_iap_begin(void)
+void iap_begin(void)
 {
     P_SW2 |= 0x80; /* EAXFR */
     IAP_TPS = (unsigned char)((FOSC + 500000UL) / 1000000UL);
@@ -51,12 +51,12 @@ void stc32g_iap_begin(void)
     iap_error = 0;
 }
 
-unsigned char stc32g_iap_failed(void)
+unsigned char iap_failed(void)
 {
     return iap_error;
 }
 
-void stc32g_iap_end(void)
+void iap_end(void)
 {
     IAP_CONTR = 0x00;
     IAP_CMD = 0x00;
@@ -66,7 +66,7 @@ void stc32g_iap_end(void)
     IAP_ADDRL = 0x00;
 }
 
-unsigned char stc32g_iap_read_byte(unsigned long address)
+unsigned char iap_read_byte(unsigned long address)
 {
     IAP_CMD = 1;
     iap_set_address(address);
@@ -75,7 +75,7 @@ unsigned char stc32g_iap_read_byte(unsigned long address)
     return IAP_DATA;
 }
 
-unsigned char stc32g_iap_write_byte(unsigned long address, unsigned char value)
+unsigned char iap_write_byte(unsigned long address, unsigned char value)
 {
     IAP_CMD = 2;
     iap_set_address(address);
@@ -83,14 +83,14 @@ unsigned char stc32g_iap_write_byte(unsigned long address, unsigned char value)
     return iap_execute();
 }
 
-unsigned char stc32g_iap_erase_sector(unsigned long address)
+unsigned char iap_erase_sector(unsigned long address)
 {
     IAP_CMD = 3;
     iap_set_address(address);
     return iap_execute();
 }
 
-void stc32g_iap_reset_to_isp(void)
+void iap_reset_to_isp(void)
 {
     IAP_CONTR = 0x60;
     for (;;)
@@ -98,22 +98,22 @@ void stc32g_iap_reset_to_isp(void)
     }
 }
 
-#define STC32G_BOOT_MAGIC 0x544F4F42UL /* "BOOT" */
+#define IAP_BOOT_MAGIC 0x544F4F42UL /* "BOOT" */
 
 __xdata __at (0x011FF0) volatile unsigned long boot_magic;
 
-void stc32g_iap_request_bootloader(void)
+void iap_request_bootloader(void)
 {
-    boot_magic = STC32G_BOOT_MAGIC;
+    boot_magic = IAP_BOOT_MAGIC;
     IAP_CONTR = 0x20; /* SWBS=0，软复位后从用户程序区运行 */
     for (;;)
     {
     }
 }
 
-unsigned char stc32g_iap_take_boot_request(void)
+unsigned char iap_take_boot_request(void)
 {
-    if (boot_magic != STC32G_BOOT_MAGIC)
+    if (boot_magic != IAP_BOOT_MAGIC)
         return 0;
     boot_magic = 0;
     return 1;

@@ -16,26 +16,26 @@
 void app_main(void)
 {
     board_init();
-    stc32g_uart1_init(115200UL, 1);
-    stc32g_uart1_write("USB HID ISP READY\r\n");
+    uart1_init(115200UL, 1);
+    uart1_write("USB HID ISP READY\r\n");
 
-    stc32g_usb_hid_init();
+    usb_hid_init();
 
     for (;;)
     {
-        unsigned char command = stc32g_usb_hid_poll();
+        unsigned char command = usb_hid_poll();
 
         if (command == 1)
         {
-            stc32g_uart1_write("RESET TO ISP\r\n");
+            uart1_write("RESET TO ISP\r\n");
             ms_delay(10);
-            stc32g_iap_reset_to_isp();
+            iap_reset_to_isp();
         }
         else if (command == 2)
         {
-            stc32g_uart1_write("RESET TO BOOTLOADER\r\n");
+            uart1_write("RESET TO BOOTLOADER\r\n");
             ms_delay(10);
-            stc32g_iap_request_bootloader();
+            iap_request_bootloader();
         }
     }
 }

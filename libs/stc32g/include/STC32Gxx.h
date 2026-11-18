@@ -79,6 +79,13 @@ __sfr __at (0xD7) T2L;
 __sfr __at (0x98) SCON;
 __sfr __at (0x99) SBUF;
 __sfr __at (0xA2) P_SW1;
+
+/* ---------- 串口 2 ---------- */
+__sfr __at (0x9A) S2CON;
+__sfr __at (0x9B) S2BUF;
+__sbit __at (0x9A) S2RI;
+__sbit __at (0x9B) S2TI;
+
 __sfr __at (0xBA) P_SW2;
 
 /* ---------- 中断 ---------- */

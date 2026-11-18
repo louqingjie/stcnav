@@ -57,8 +57,8 @@
 
 static const unsigned char proto_magic[6] = {'S', 'T', 'C', 'N', 'A', 'V'};
 
-static __xdata unsigned char rx[STC32G_USB_HID_REPORT_SIZE];
-static __xdata unsigned char tx[STC32G_USB_HID_REPORT_SIZE];
+static __xdata unsigned char rx[USB_HID_REPORT_SIZE];
+static __xdata unsigned char tx[USB_HID_REPORT_SIZE];
 
 static unsigned long app_length;
 static unsigned long app_crc;
@@ -100,7 +100,7 @@ static unsigned long flash_read32(unsigned long address)
     unsigned char index;
 
     for (index = 0; index < 4; index++)
-        value |= (unsigned long)stc32g_iap_read_byte(address + index) << (index * 8);
+        value |= (unsigned long)iap_read_byte(address + index) << (index * 8);
     return value;
 }
 
@@ -110,7 +110,7 @@ static unsigned char flash_write32(unsigned long address, unsigned long value)
 
     for (index = 0; index < 4; index++)
     {
-        if (stc32g_iap_write_byte(address + index,
+        if (iap_write_byte(address + index,
                                   (unsigned char)(value >> (index * 8))))
             return 1;
     }
@@ -144,8 +144,8 @@ static unsigned char meta_write(void)
 {
     unsigned char failed;
 
-    stc32g_iap_begin();
-    failed = stc32g_iap_erase_sector(META_ADDR);
+    iap_begin();
+    failed = iap_erase_sector(META_ADDR);
     if (!failed)
         failed = flash_write32(META_ADDR, META_MAGIC);
     if (!failed)
@@ -158,8 +158,8 @@ static unsigned char meta_write(void)
     {
         unsigned int short_length = (unsigned int)vector_length;
 
-        if (stc32g_iap_write_byte(META_ADDR + 16, (unsigned char)short_length) ||
-            stc32g_iap_write_byte(META_ADDR + 17, (unsigned char)(short_length >> 8)))
+        if (iap_write_byte(META_ADDR + 16, (unsigned char)short_length) ||
+            iap_write_byte(META_ADDR + 17, (unsigned char)(short_length >> 8)))
             failed = 1;
     }
     if (!failed)
@@ -169,7 +169,7 @@ static unsigned char meta_write(void)
             flash_read32(META_ADDR + 8) != app_crc)
             failed = 1;
     }
-    stc32g_iap_end();
+    iap_end();
 
     return failed;
 }
@@ -178,16 +178,16 @@ static unsigned char erase_region(unsigned long start, unsigned long size)
 {
     unsigned long address;
 
-    stc32g_iap_begin();
-    for (address = start; address < start + size; address += STC32G_IAP_SECTOR_SIZE)
+    iap_begin();
+    for (address = start; address < start + size; address += IAP_SECTOR_SIZE)
     {
-        if (stc32g_iap_erase_sector(address))
+        if (iap_erase_sector(address))
         {
-            stc32g_iap_end();
+            iap_end();
             return 1;
         }
     }
-    stc32g_iap_end();
+    iap_end();
     return 0;
 }
 
@@ -196,16 +196,16 @@ static unsigned char write_bytes(unsigned long address, const unsigned char *dat
 {
     unsigned char index;
 
-    stc32g_iap_begin();
+    iap_begin();
     for (index = 0; index < length; index++)
     {
-        if (stc32g_iap_write_byte(address + index, data[index]))
+        if (iap_write_byte(address + index, data[index]))
         {
-            stc32g_iap_end();
+            iap_end();
             return 1;
         }
     }
-    stc32g_iap_end();
+    iap_end();
     return 0;
 }
 
@@ -229,15 +229,15 @@ static unsigned char flash_crc32(unsigned long address, unsigned long length,
 {
     unsigned long crc = 0xFFFFFFFFUL;
 
-    stc32g_iap_begin();
+    iap_begin();
     while (length--)
-        crc = crc32_update(crc, stc32g_iap_read_byte(address++));
-    if (stc32g_iap_failed())
+        crc = crc32_update(crc, iap_read_byte(address++));
+    if (iap_failed())
     {
-        stc32g_iap_end();
+        iap_end();
         return 1;
     }
-    stc32g_iap_end();
+    iap_end();
 
     *result = crc ^ 0xFFFFFFFFUL;
     return 0;
@@ -248,17 +248,17 @@ static void respond(unsigned char command, unsigned char status,
 {
     unsigned char index;
 
-    for (index = 0; index < STC32G_USB_HID_REPORT_SIZE; index++)
+    for (index = 0; index < USB_HID_REPORT_SIZE; index++)
         tx[index] = 0;
     for (index = 0; index < 6; index++)
         tx[index] = proto_magic[index];
     tx[6] = PROTO_VERSION;
     tx[7] = command;
     tx[8] = status;
-    for (index = 0; index < length && (unsigned char)(9 + index) < STC32G_USB_HID_REPORT_SIZE; index++)
+    for (index = 0; index < length && (unsigned char)(9 + index) < USB_HID_REPORT_SIZE; index++)
         tx[9 + index] = data[index];
 
-    stc32g_usb_hid_write(tx, STC32G_USB_HID_REPORT_SIZE);
+    usb_hid_write(tx, USB_HID_REPORT_SIZE);
 }
 
 static void handle_info(void)
@@ -283,18 +283,18 @@ static void handle_probe(void)
     unsigned char data[3];
 
     /* IAP 映射探测：0xFE0000 是本程序首字节，0xFF0000 应为 0x02。 */
-    stc32g_iap_begin();
-    data[0] = stc32g_iap_read_byte(0xFE0000UL);
-    data[1] = stc32g_iap_read_byte(0xFF0000UL);
-    data[2] = stc32g_iap_failed();
-    stc32g_iap_end();
+    iap_begin();
+    data[0] = iap_read_byte(0xFE0000UL);
+    data[1] = iap_read_byte(0xFF0000UL);
+    data[2] = iap_failed();
+    iap_end();
 
     respond(CMD_PROBE, STATUS_OK, data, 3);
 }
 
 static void handle_erase(void)
 {
-    if (erase_region(META_ADDR, STC32G_IAP_SECTOR_SIZE) ||
+    if (erase_region(META_ADDR, IAP_SECTOR_SIZE) ||
         erase_region(APP_START, APP_SIZE) ||
         erase_region(VEC_START, VEC_SIZE))
     {
@@ -438,7 +438,7 @@ static void handle_run(void)
 
     respond(CMD_RUN, STATUS_OK, 0, 0);
     ms_delay(50);
-    stc32g_usb_hid_disconnect();
+    usb_hid_disconnect();
     ms_delay(50);
     jump_to_app();
 }
@@ -447,7 +447,7 @@ static void handle_isp(void)
 {
     respond(CMD_ISP, STATUS_OK, 0, 0);
     ms_delay(50);
-    stc32g_iap_reset_to_isp();
+    iap_reset_to_isp();
 }
 
 static __xdata unsigned char read_data[55];
@@ -477,16 +477,16 @@ static void handle_read(const unsigned char *report, unsigned char length)
         return;
     }
 
-    stc32g_iap_begin();
+    iap_begin();
     for (index = 0; index < count; index++)
-        read_data[index] = stc32g_iap_read_byte(address + index);
-    if (stc32g_iap_failed())
+        read_data[index] = iap_read_byte(address + index);
+    if (iap_failed())
     {
-        stc32g_iap_end();
+        iap_end();
         respond(CMD_READ, STATUS_IAP_ERROR, 0, 0);
         return;
     }
-    stc32g_iap_end();
+    iap_end();
 
     respond(CMD_READ, STATUS_OK, read_data, count);
 }
@@ -555,9 +555,9 @@ void app_main(void)
     unsigned char stay = 0;
 
     board_init();
-    stc32g_usb_hid_init();
+    usb_hid_init();
 
-    if (stc32g_iap_take_boot_request())
+    if (iap_take_boot_request())
         stay = 1;
     else if (!app_valid())
         stay = 1;
@@ -567,7 +567,7 @@ void app_main(void)
         /* 给主机 3 秒窗口连接 FF02；收到任何协议命令就留在 Bootloader。 */
         for (index = 0; index < 300; index++)
         {
-            length = stc32g_usb_hid_read(rx);
+            length = usb_hid_read(rx);
             if (length && handle_report(rx, length))
             {
                 stay = 1;
@@ -579,14 +579,14 @@ void app_main(void)
 
     if (!stay)
     {
-        stc32g_usb_hid_disconnect();
+        usb_hid_disconnect();
         ms_delay(20);
         jump_to_app();
     }
 
     for (;;)
     {
-        length = stc32g_usb_hid_read(rx);
+        length = usb_hid_read(rx);
         if (length)
             handle_report(rx, length);
     }
