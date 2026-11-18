@@ -1,9 +1,13 @@
 /*
- * 整车主程序：遥控 + 双 IMU + 四全向轮 + 云台。
+ * 整车主程序：遥控 + 双 IMU + 四全向轮 + 云台 + RM2027 V2 上位机链路。
  *
  * 控制周期 10 ms（35 MHz 主频）。
- * 正常构建：UART1 P3.0/P3.1 230400 控制拓展板。
- * VEHICLE_DEBUG=1：UART1 P4.3/P4.4 115200 输出调试 CSV，不控制拓展板。
+ * 正常构建（vehicle）：UART1 P3.0/P3.1 230400 控制拓展板；
+ *                      UART2 P1.0/P1.1 230400 与上位机通信（V2 协议）。
+ * VEHICLE_DEBUG：UART1 P4.3/P4.4 230400 输出调试 CSV 与 V2 golden 自检；
+ *                 不控制拓展板，也不运行 V2 链路（UART2 留给现场调试）。
+ *
+ * 运动所有权（normal 构建）：NRF 遥控 > V2 上位机命令；两者都无有效命令时停车。
  */
 
 #include "config.h"
@@ -17,8 +21,24 @@
 #include "stc32g_timer.h"
 #include "stc32g_uart.h"
 #include "stc32g_i2c.h"
+#if VEHICLE_DEBUG
+#include "v2_selftest.h"
+#define V2_SERVICE_WAIT(ms) delay_ms(ms)
+#define V2_POLL(now, ok) ((void)(now), (void)(ok))
+#define V2_SET_READY(value) ((void)(value))
+#else
+#include "v2_link.h"
+#include "stc32g_uart2.h"
+#define V2_SERVICE_WAIT(ms) service_wait(ms)
+#define V2_POLL(now, ok) v2_link_poll((now), (ok))
+#define V2_SET_READY(value) v2_link_set_ready(value)
+#endif
 
 #define TIMER0_RELOAD ((unsigned int)(65536UL - (FOSC / 1000UL)))
+
+#define OWNER_NONE 0
+#define OWNER_REMOTE 1
+#define OWNER_V2 2
 
 static __data volatile unsigned int ms_ticks;
 
@@ -30,6 +50,8 @@ void timer0_isr(void) __interrupt (1)
 {
     ms_ticks++;
 }
+
+/* UART2 中断服务程序位于 v2_link.c（向量 8，使能位 IE2.1/ES2）。 */
 
 unsigned int millis(void)
 {
@@ -49,6 +71,17 @@ void delay_ms(unsigned int ms)
     {
     }
 }
+
+#if !VEHICLE_DEBUG
+/* 启动/故障等待期间保持 V2 心跳。 */
+static void service_wait(unsigned int wait_ms)
+{
+    unsigned int start = millis();
+
+    while ((unsigned int)(millis() - start) < wait_ms)
+        v2_link_poll(millis(), 0);
+}
+#endif
 
 #if VEHICLE_DEBUG
 static void debug_write_long(long value)
@@ -125,15 +158,26 @@ void main(void)
     float dt;
     unsigned char spin_mode = 0;
     unsigned char last_e = 0;
-    unsigned char was_connected = 0;
-    unsigned char imu_ok;
+    unsigned char imu_ok = 0;
     unsigned char index;
+    unsigned char owner = OWNER_NONE;
+    unsigned char last_owner = OWNER_NONE;
     signed short gimbal_duty = 0;
-#if VEHICLE_DEBUG
+#if !VEHICLE_DEBUG
+    float vx;
+    float vy;
+    float wz;
+    unsigned long boot_id;
+#else
     unsigned int last_print;
 #endif
 
     board_init();
+
+#if !VEHICLE_DEBUG
+    /* boot_id 持久化在 app 区最后 512 B 扇区（STC-ISP 需配置 EEPROM 区）。 */
+    boot_id = v2_boot_id_load();
+#endif
 
     timer0_init(TIMER0_RELOAD);
     ms_ticks = 0;
@@ -142,10 +186,16 @@ void main(void)
     timer0_start();
 
 #if VEHICLE_DEBUG
-    uart1_init(115200UL, 3);
+    uart1_init(V2_UART_BAUD, 3);
     uart1_write("DEBUG BOOT\r\n");
+    if (v2_selftest() == 0u)
+        uart1_write("V2SELFTEST PASS\r\n");
+    else
+        uart1_write("V2SELFTEST FAIL\r\n");
 #else
     expansion_init();
+    /* V2 链路尽早启动：上位机立即看到 boot_id/capability（ready=0）。 */
+    v2_link_init(boot_id, millis());
 #endif
 
     i2c_init();
@@ -160,8 +210,9 @@ void main(void)
 #else
         expansion_stop();
 #endif
-        delay_ms(500);
+        V2_SERVICE_WAIT(500);
     }
+    V2_SET_READY(1);
 #if VEHICLE_DEBUG
     uart1_write("IMU OK\r\n");
     uart1_write("NRF INIT...\r\n");
@@ -174,7 +225,7 @@ void main(void)
 #else
         expansion_stop();
 #endif
-        delay_ms(500);
+        V2_SERVICE_WAIT(500);
     }
 #if VEHICLE_DEBUG
     uart1_write("NRF OK\r\n");
@@ -191,6 +242,8 @@ void main(void)
     {
         now = millis();
 
+        V2_POLL(now, imu_ok);
+
         if ((unsigned int)(now - last_control) < CONTROL_PERIOD_MS)
             continue;
 
@@ -203,65 +256,48 @@ void main(void)
         remote_poll(now);
         imu_ok = imu_update(dt);
 
-        if (!remote_connected())
+        if (!imu_ok)
         {
-            if (was_connected)
-            {
-                spin_mode = 0;
-                chassis_stop();
-                gimbal_set_target(imu_get_gimbal_yaw());
-                gimbal_reset();
-                gimbal_duty = 0;
-                for (index = 0; index < 4; index++)
-                    wheel_duty[index] = 0;
-            }
-            was_connected = 0;
-
-            g_remote.left_v = 0;
-            g_remote.left_h = 0;
-            g_remote.right_v = 0;
-            g_remote.right_h = 0;
-            g_remote.keys = 0;
-
+            /* IMU 故障：先停车、撤销 ready，再重新初始化，期间保持心跳。 */
+            V2_SET_READY(0);
 #if !VEHICLE_DEBUG
             expansion_stop();
 #endif
-        }
-        else
-        {
-            if (!was_connected)
-            {
-                gimbal_set_target(imu_get_gimbal_yaw());
-                gimbal_reset();
-                last_e = remote_key(REMOTE_KEY_E);
-            }
-            was_connected = 1;
+            chassis_stop();
+            spin_mode = 0;
+            gimbal_duty = 0;
+            for (index = 0; index < 4; index++)
+                wheel_duty[index] = 0;
 
-            if (!imu_ok)
+            V2_SERVICE_WAIT(500);
+            while (!imu_init())
             {
 #if !VEHICLE_DEBUG
                 expansion_stop();
 #endif
-                delay_ms(500);
+                V2_SERVICE_WAIT(500);
+            }
+            V2_SET_READY(1);
 
-                while (!imu_init())
-                {
-#if !VEHICLE_DEBUG
-                    expansion_stop();
-#endif
-                    delay_ms(500);
-                }
+            gimbal_set_target(imu_get_gimbal_yaw());
+            gimbal_reset();
+            last_e = remote_key(REMOTE_KEY_E);
+            owner = OWNER_NONE;
+            last_owner = OWNER_NONE;
+            last_control = millis();
+            continue;
+        }
 
+        if (remote_connected())
+        {
+            owner = OWNER_REMOTE;
+
+            if (last_owner != OWNER_REMOTE)
+            {
                 gimbal_set_target(imu_get_gimbal_yaw());
                 gimbal_reset();
-                chassis_stop();
-                spin_mode = 0;
-                gimbal_duty = 0;
-                for (index = 0; index < 4; index++)
-                    wheel_duty[index] = 0;
+                chassis_reset_spin();
                 last_e = remote_key(REMOTE_KEY_E);
-                last_control = millis();
-                continue;
             }
 
             if (remote_key(REMOTE_KEY_E) && !last_e)
@@ -278,8 +314,56 @@ void main(void)
             chassis_update(g_remote.left_v, g_remote.left_h,
                            imu_get_chassis_yaw(), imu_get_gimbal_yaw(),
                            imu_get_chassis_rate(), spin_mode, dt, wheel_duty);
+        }
+#if !VEHICLE_DEBUG
+        else if (v2_motion_take(now, imu_ok, &vx, &vy, &wz))
+        {
+            owner = OWNER_V2;
+
+            if (last_owner != OWNER_V2)
+            {
+                gimbal_set_target(imu_get_gimbal_yaw());
+                gimbal_reset();
+                chassis_reset_spin();
+                spin_mode = 0;
+            }
+
+            /* V2 没有云台命令：保持当前云台目标，PID 继续工作。 */
+            gimbal_duty = gimbal_update(0, imu_get_gimbal_yaw(),
+                                        imu_get_gimbal_rate(), dt);
+            chassis_update_velocity(vx, vy, wz, dt, wheel_duty);
+        }
+#endif
+        else
+        {
+            owner = OWNER_NONE;
+
+            if (last_owner != OWNER_NONE)
+            {
+#if !VEHICLE_DEBUG
+                expansion_stop();
+#endif
+                chassis_stop();
+                spin_mode = 0;
+                gimbal_duty = 0;
+                for (index = 0; index < 4; index++)
+                    wheel_duty[index] = 0;
+            }
+        }
+        last_owner = owner;
+
+        if (!remote_connected())
+        {
+            g_remote.left_v = 0;
+            g_remote.left_h = 0;
+            g_remote.right_v = 0;
+            g_remote.right_h = 0;
+            g_remote.keys = 0;
+        }
 
 #if !VEHICLE_DEBUG
+        if (owner != OWNER_NONE)
+        {
             motor_duty[0] = (unsigned short)(gimbal_duty >= 0 ? gimbal_duty : -gimbal_duty);
             motor_dir[0] = (gimbal_duty >= 0) ? 1 : 0;
             motor_duty[1] = 0;
@@ -297,8 +381,8 @@ void main(void)
             }
 
             expansion_apply(motor_dir, motor_duty);
-#endif
         }
+#endif
 
 #if VEHICLE_DEBUG
         if ((unsigned int)(now - last_print) >= 50)

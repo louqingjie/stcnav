@@ -23,6 +23,13 @@ jobs:
             libglib2.0-dev libpixman-1-dev \
             libhidapi-dev picocom
 
+      - name: Host codec golden vector test
+        run: |
+          cc -std=c11 -O2 -Wall -Wextra -Iapps/vehicle \
+            apps/vehicle/v2_codec.c apps/vehicle/v2_selftest.c \
+            apps/vehicle/tests/v2_codec_host_test.c -o /tmp/v2_codec_test
+          /tmp/v2_codec_test
+
       - name: Apply toolchain patches
         run: tools/apply_toolchain_patches.sh
 
@@ -76,8 +83,16 @@ jobs:
       - name: Build USB HID ISP app
         run: python3 tools/build.py --app usb_hid_isp
 
+      - name: Build vehicle firmware (V2 protocol)
+        run: |
+          python3 tools/build.py --app vehicle
+          python3 tools/build.py --app vehicle_debug
+
       - name: Build and run QEMU
         run: python3 tools/build.py --app freertos_blinky --qemu --qemu-timeout 20
+
+      - name: Build and run V2 golden self-test under QEMU
+        run: python3 tools/build.py --app vehicle_v2test --qemu --qemu-timeout 20
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

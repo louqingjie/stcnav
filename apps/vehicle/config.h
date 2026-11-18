@@ -29,6 +29,28 @@
 #define IMU_GIMBAL_ADDR 0x69
 #define MPU6050_REG_GYRO_ZOUT_H 0x47
 #define MPU6050_GYRO_LSB_PER_DPS 131.0f
+#define MPU6050_ACCEL_LSB_PER_G 16384.0f
+#define GRAVITY_MPS2 9.80665f
+
+/* 六轴姿态互补/Mahony 滤波参数（100 Hz 控制周期）。 */
+#define IMU_FILTER_KP 1.0f
+#define IMU_FILTER_KI 0.02f
+#define IMU_FILTER_INTEGRAL_LIMIT 0.5f
+
+/* ---------- V2 上位机链路（UART2 P1.0/P1.1） ---------- */
+/* 与 UART1 的拓展板/调参共用 Timer2，因此必须保持 230400。 */
+#define V2_UART_BAUD 230400UL
+#define V2_STATE_PERIOD_MS 20       /* 0x82/0x85/0x88 -> 50 Hz */
+#define V2_HEARTBEAT_PERIOD_MS 100  /* 0x03 -> 10 Hz */
+#define V2_CMD_TIMEOUT_MS 200       /* 0x01 命令新鲜度 */
+#define V2_HOST_TIMEOUT_MS 500      /* 上位机心跳超时 -> 撤销 V2 运动授权 */
+#define V2_MAX_LINEAR_MPS 2.0f
+#define V2_MAX_WZ_RPS 6.2831853f
+#define V2_ENABLE_MOTION 1
+/* bit0 chassis command | bit2 gimbal | bit5 heading | bit8 attitude */
+#define V2_CAPABILITIES 0x00000125UL
+/* app 区最后 512 B 的保留扇区，用于上电 boot_id 计数。 */
+#define V2_BOOT_SECTOR_ADDR 0xFEFE00UL
 
 /* ---------- 控制周期 ---------- */
 #define CONTROL_PERIOD_MS 10

@@ -63,42 +63,14 @@ void chassis_stop(void)
     last_wheel[3] = 0;
 }
 
-void chassis_update(signed short left_v, signed short left_h,
-                    float chassis_yaw, float gimbal_yaw,
-                    float chassis_rate, unsigned char spin_mode,
-                    float dt, signed short wheel_out[4])
+/*
+ * 轮速混合、平移优先归一化、方向符号与斜率限制。
+ * 输入 vx/vy 是车体系占空比，omega_dps 是绕 +z（逆时针为正）的角速度。
+ */
+static void chassis_output(float body_vx, float body_vy, float omega_dps,
+                           unsigned char spin_mode, signed short wheel_out[4])
 {
     unsigned char index;
-
-    if (left_v > -JOYSTICK_DEADBAND && left_v < JOYSTICK_DEADBAND)
-        left_v = 0;
-    if (left_h > -JOYSTICK_DEADBAND && left_h < JOYSTICK_DEADBAND)
-        left_h = 0;
-
-    vx = LEFT_V_SIGN * (float)left_v / JOYSTICK_MAX * MAX_TRANSLATE_DUTY;
-    vy = LEFT_H_SIGN * (float)left_h / JOYSTICK_MAX * MAX_TRANSLATE_DUTY;
-
-    relative = wrap180(chassis_yaw - gimbal_yaw) * 0.0174532925f;
-    body_vx = vx * cosf(relative) + vy * sinf(relative);
-    body_vy = -vx * sinf(relative) + vy * cosf(relative);
-
-    if (spin_mode)
-    {
-        spin_integral_prev = spin_integral;
-        rate_error = SPIN_RATE_DPS - chassis_rate;
-        spin_integral += rate_error * dt;
-        if (spin_integral > SPIN_INTEGRAL_LIMIT)
-            spin_integral = SPIN_INTEGRAL_LIMIT;
-        else if (spin_integral < -SPIN_INTEGRAL_LIMIT)
-            spin_integral = -SPIN_INTEGRAL_LIMIT;
-
-        omega_dps = SPIN_RATE_DPS + SPIN_KP * rate_error + SPIN_KI * spin_integral;
-    }
-    else
-    {
-        spin_integral = 0.0f;
-        omega_dps = -CHASSIS_YAW_DAMP * chassis_rate;
-    }
 
     rotation_duty = clampf(ROT_GAIN_DUTY_PER_DPS * omega_dps, (float)DUTY_MAX);
 
@@ -167,4 +139,54 @@ void chassis_update(signed short left_v, signed short left_h,
         last_wheel[index] = (signed short)((float)last_wheel[index] + delta);
         wheel_out[index] = last_wheel[index];
     }
+}
+
+void chassis_update(signed short left_v, signed short left_h,
+                    float chassis_yaw, float gimbal_yaw,
+                    float chassis_rate, unsigned char spin_mode,
+                    float dt, signed short wheel_out[4])
+{
+    if (left_v > -JOYSTICK_DEADBAND && left_v < JOYSTICK_DEADBAND)
+        left_v = 0;
+    if (left_h > -JOYSTICK_DEADBAND && left_h < JOYSTICK_DEADBAND)
+        left_h = 0;
+
+    vx = LEFT_V_SIGN * (float)left_v / JOYSTICK_MAX * MAX_TRANSLATE_DUTY;
+    vy = LEFT_H_SIGN * (float)left_h / JOYSTICK_MAX * MAX_TRANSLATE_DUTY;
+
+    relative = wrap180(chassis_yaw - gimbal_yaw) * 0.0174532925f;
+    body_vx = vx * cosf(relative) + vy * sinf(relative);
+    body_vy = -vx * sinf(relative) + vy * cosf(relative);
+
+    if (spin_mode)
+    {
+        spin_integral_prev = spin_integral;
+        rate_error = SPIN_RATE_DPS - chassis_rate;
+        spin_integral += rate_error * dt;
+        if (spin_integral > SPIN_INTEGRAL_LIMIT)
+            spin_integral = SPIN_INTEGRAL_LIMIT;
+        else if (spin_integral < -SPIN_INTEGRAL_LIMIT)
+            spin_integral = -SPIN_INTEGRAL_LIMIT;
+
+        omega_dps = SPIN_RATE_DPS + SPIN_KP * rate_error + SPIN_KI * spin_integral;
+    }
+    else
+    {
+        spin_integral = 0.0f;
+        omega_dps = -CHASSIS_YAW_DAMP * chassis_rate;
+    }
+
+    chassis_output(body_vx, body_vy, omega_dps, spin_mode, wheel_out);
+}
+
+void chassis_update_velocity(float vx_mps, float vy_mps, float wz_rad_s,
+                             float dt, signed short wheel_out[4])
+{
+    (void)dt;
+
+    body_vx = clampf(vx_mps / V2_MAX_LINEAR_MPS, 1.0f) * MAX_TRANSLATE_DUTY;
+    body_vy = clampf(vy_mps / V2_MAX_LINEAR_MPS, 1.0f) * MAX_TRANSLATE_DUTY;
+    omega_dps = wz_rad_s * 57.2957795f;
+
+    chassis_output(body_vx, body_vy, omega_dps, 0u, wheel_out);
 }
