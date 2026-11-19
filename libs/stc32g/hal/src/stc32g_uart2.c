@@ -6,8 +6,9 @@
  *
  * 中断说明（STC32G 手册）：
  *   - UART2 中断向量号 8；
- *   - 中断使能 IE2.1（ES2）；
- *   - S2CON.0 = S2RI，S2CON.1 = S2TI。
+ *   - 中断使能 IE2.0（ES2）；IE2.1 是 ESPI（SPI），不要写错；
+ *   - S2CON.0 = S2RI，S2CON.1 = S2TI。S2CON(0x9A) 不可位寻址，只能用掩码。
+ *     写成 __sbit __at (0x9A/0x9B) 会别名到 SCON(0x98).2/3 = RB8/TB8（UART1）。
  *
  * 环形缓冲索引只在主循环（关 UART2 中断的短临界区）与 UART2 ISR 之间共享。
  * 230400 下单字节省时间约 43 us，临界区 < 2 us，不会丢字节。
@@ -19,9 +20,9 @@
 #define UART2_RING_SIZE 256u
 #define UART2_RING_MASK 0xFFu
 
-/* IE2.1 = ES2（UART2 中断使能）。 */
-#define UART2_IRQ_OFF() (IE2 = (unsigned char)(IE2 & (unsigned char)~0x02))
-#define UART2_IRQ_ON() (IE2 = (unsigned char)(IE2 | 0x02))
+/* IE2.0 = ES2（UART2 中断使能）。 */
+#define UART2_IRQ_OFF() (IE2 = (unsigned char)(IE2 & (unsigned char)~0x01))
+#define UART2_IRQ_ON() (IE2 = (unsigned char)(IE2 | 0x01))
 
 static __xdata unsigned char rx_ring[UART2_RING_SIZE];
 static __xdata unsigned char tx_ring[UART2_RING_SIZE];
@@ -55,18 +56,17 @@ void uart2_init(unsigned long baud)
     T2H = (unsigned char)(reload >> 8);
     AUXR = (unsigned char)(AUXR | 0x14); /* Timer2 1T、启动 */
 
-    S2CON = 0x10; /* 模式 0（8 位 UART），允许接收 */
-    S2TI = 0;
-    S2RI = 0;
+    /* 模式 0（8 位 UART）、S2REN=1；写整个寄存器同时清 S2RI/S2TI。 */
+    S2CON = 0x10;
 }
 
 void uart2_write_byte(unsigned char data)
 {
     S2BUF = data;
-    while (!S2TI)
+    while (!(S2CON & S2CON_S2TI))
     {
     }
-    S2TI = 0;
+    S2CON = (unsigned char)(S2CON & (unsigned char)~S2CON_S2TI);
 }
 
 void uart2_write(const char *text)
@@ -80,14 +80,14 @@ void uart2_write(const char *text)
 
 unsigned char uart2_rx_ready(void)
 {
-    return S2RI ? 1 : 0;
+    return (S2CON & S2CON_S2RI) ? 1 : 0;
 }
 
 unsigned char uart2_read_byte(void)
 {
     unsigned char data = S2BUF;
 
-    S2RI = 0;
+    S2CON = (unsigned char)(S2CON & (unsigned char)~S2CON_S2RI);
     return data;
 }
 
@@ -105,8 +105,7 @@ void uart2_init_async(unsigned long baud)
     rx_overflow = 0;
     tx_overflow = 0;
 
-    S2RI = 0;
-    S2TI = 0;
+    S2CON = (unsigned char)(S2CON & (unsigned char)~(S2CON_S2RI | S2CON_S2TI));
     UART2_IRQ_ON();
 }
 
@@ -114,10 +113,10 @@ void uart2_irq_handler(void)
 {
     unsigned char data;
 
-    if (S2RI)
+    if (S2CON & S2CON_S2RI)
     {
         data = S2BUF;
-        S2RI = 0;
+        S2CON = (unsigned char)(S2CON & (unsigned char)~S2CON_S2RI);
 
         if (rx_count < (UART2_RING_SIZE - 1u))
         {
@@ -131,9 +130,9 @@ void uart2_irq_handler(void)
         }
     }
 
-    if (S2TI)
+    if (S2CON & S2CON_S2TI)
     {
-        S2TI = 0;
+        S2CON = (unsigned char)(S2CON & (unsigned char)~S2CON_S2TI);
 
         if (tx_count != 0u)
         {

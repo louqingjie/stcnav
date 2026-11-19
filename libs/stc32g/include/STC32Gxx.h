@@ -81,10 +81,16 @@ __sfr __at (0x99) SBUF;
 __sfr __at (0xA2) P_SW1;
 
 /* ---------- 串口 2 ---------- */
+/*
+ * S2CON 位于 0x9A，不是 8 的整数倍，不可位寻址。
+ * S2CON.0 = S2RI，S2CON.1 = S2TI（STC32G 手册 18.4.1），只能用位掩码访问。
+ * 注意：不能写成 __sbit __at (0x9A)：SDCC 会把它解释成 SCON(0x98).2=RB8，
+ * 即 UART1 的第 9 位接收标志，与 UART2 完全无关。
+ */
+#define S2CON_S2RI 0x01u
+#define S2CON_S2TI 0x02u
 __sfr __at (0x9A) S2CON;
 __sfr __at (0x9B) S2BUF;
-__sbit __at (0x9A) S2RI;
-__sbit __at (0x9B) S2TI;
 
 __sfr __at (0xBA) P_SW2;
 

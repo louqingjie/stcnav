@@ -19,7 +19,7 @@ unsigned char uart2_read_byte(void);
 /*
  * ---------- 中断异步模式（vehicle V2 协议链路） ----------
  *
- * uart2_init_async() 会打开 UART2 中断使能（IE2.1/ES2，向量 8）。
+ * uart2_init_async() 会打开 UART2 中断使能（IE2.0/ES2，向量 8）。
  * vehicle 构建在 v2_link.c 中定义中断服务程序：
  *     void uart2_isr(void) __interrupt (8) { uart2_irq_handler(); }
  * 并保证 EA = 1。

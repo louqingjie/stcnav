@@ -51,7 +51,7 @@ void timer0_isr(void) __interrupt (1)
     ms_ticks++;
 }
 
-/* UART2 中断服务程序位于 v2_link.c（向量 8，使能位 IE2.1/ES2）。 */
+/* UART2 中断服务程序位于 v2_link.c（向量 8，使能位 IE2.0/ES2）。 */
 
 unsigned int millis(void)
 {

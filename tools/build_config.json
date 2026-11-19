@@ -67,6 +67,20 @@
       "sources": ["apps/hello_uart/main.c"],
       "free_rtos": false
     },
+    "uart2_echo": {
+      "sources": [
+        "apps/uart2_echo/main.c",
+        "libs/stc32g/hal/src/stc32g_uart2.c"
+      ],
+      "free_rtos": false
+    },
+    "uart2_echo_230400": {
+      "sources": [
+        "apps/uart2_echo/main.c",
+        "libs/stc32g/hal/src/stc32g_uart2.c"
+      ],
+      "free_rtos": false
+    },
     "mpu6050_uart": {
       "sources": [
         "apps/mpu6050_uart/main.c",
@@ -199,6 +213,7 @@
       "-DMPU6050_COUNT=2",
       "-DMPU6050_UART_GROUP=3"
     ],
+    "uart2_echo_230400": ["-DUART2_ECHO_BAUD=230400UL"],
     "vehicle": ["-DIMU_PUBLISH_V2=1"],
     "vehicle_debug": ["-DVEHICLE_DEBUG=1", "-DIMU_PUBLISH_V2=1"],
     "freertos_coop": ["-DconfigUSE_PREEMPTION=0"],

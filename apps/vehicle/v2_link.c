@@ -31,7 +31,7 @@
 
 static v2_diag_t diag;
 
-/* UART2 中断服务程序（向量 8，使能位 IE2.1/ES2）。
+/* UART2 中断服务程序（向量 8，使能位 IE2.0/ES2）。
  * 放在本文件而不是 main.c：build.py 会按源码文本生成中断声明，
  * 而 vehicle_debug 不链接本文件也不启用 UART2 中断。 */
 void uart2_isr(void) __interrupt (8)
