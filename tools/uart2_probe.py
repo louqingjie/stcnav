@@ -47,8 +47,20 @@ IRC_CANDIDATES_MHZ = (
     11.0592, 12, 20, 22.1184, 24, 24.576, 27, 30, 33.1776, 35, 36, 40, 45,
 )
 
-LINE_READY = re.compile(rb"U2 READY baud=(\d+) fosc=(\d+)")
-LINE_HB = re.compile(rb"U2 HB (\d+) rx=(\d+) uptime=(\d+)")
+LINE_READY = re.compile(
+    rb"U2 READY baud=(?P<baud>\d+) fosc=(?P<fosc>\d+)"
+    rb"(?: hb=(?P<hb>\d+) rx=(?P<rx>\d+))?"
+)
+LINE_HB = re.compile(
+    rb"U2 HB (?P<hb>\d+) rx=(?P<rx>\d+) uptime=(?P<uptime>\d+)"
+)
+
+
+def rx_from_match(match) -> int | None:
+    if match is None:
+        return None
+    value = match.group("rx")
+    return int(value) if value is not None else None
 
 
 def decode_line(line: bytes) -> str:
@@ -224,18 +236,12 @@ def probe_once(device: str, args) -> bool:
         return False
 
     try:
-        banner = None
-        heartbeat = None
         kind, match, line = port.wait_status(args.wait)
         if kind == "ready":
-            banner = match
-            print(f"[probe] TX(MCU->PC): PASS  横幅: {decode_line(line)}")
-            # 刚上电：还没发送过任何字节，rx 计数基线为 0。
-            heartbeat = None
+            print(f"[probe] TX(MCU->PC): PASS  状态行: {decode_line(line)}")
         elif kind == "hb":
-            heartbeat = match
             print(f"[probe] TX(MCU->PC): PASS  心跳: {decode_line(line)}")
-            print("[probe] 未捕获上电横幅（固件已运行一段时间），不影响结论。")
+            print("[probe] 状态行为兼容旧固件格式，不影响结论。")
         else:
             captured = bytes(port.buffer)
             port.buffer.clear()
@@ -246,7 +252,7 @@ def probe_once(device: str, args) -> bool:
                 print("[probe] TX(MCU->PC): FAIL  串口没有任何数据")
             return False
 
-        rx_baseline = int(heartbeat.group(2)) if heartbeat else 0
+        rx_baseline = rx_from_match(match) or 0
 
         # 回显测试前清空接收缓冲，避免横幅/心跳混进回显流。
         port.drain()
@@ -296,9 +302,8 @@ def probe_once(device: str, args) -> bool:
                 )
 
         rx_after = None
-        match, line = port.wait_line(LINE_HB, 2.5)
-        if match:
-            rx_after = int(match.group(2))
+        kind, match, line = port.wait_status(2.5)
+        rx_after = rx_from_match(match)
 
         echo_ok = (
             stats["matched"] == total
@@ -385,6 +390,44 @@ def autobaud(device: str, args) -> bool:
     return False
 
 
+def loopback(device: str, baud: int) -> int:
+    """USB-TTL 自环测试：把适配器的 TXD 与 RXD 直接短接后运行。"""
+    print(f"[probe] USB-TTL 自环测试 {device} @ {baud} 8N1")
+    print("[probe] 请先拔掉与板子相连的 TXD/RXD，并把这两根线直接短接（GND 不用管）")
+    payload = bytes(range(256)) * 2 + b"\r\nU2 LOOPBACK\r\n"
+    try:
+        with serial.Serial(device, baud, timeout=0.05) as ser:
+            ser.reset_input_buffer()
+            ser.write(payload)
+            ser.flush()
+            got = bytearray()
+            deadline = time.time() + 1.0
+            while time.time() < deadline and len(got) < len(payload):
+                chunk = ser.read(512)
+                if chunk:
+                    got.extend(chunk)
+    except serial.SerialException as error:
+        print(f"[probe] 打开失败：{error}")
+        return 2
+
+    if bytes(got) == payload:
+        print(f"[probe] 自环 PASS：{len(payload)} 字节原样返回，USB-TTL 与驱动正常。")
+        print("[probe] 那么问题在板子一侧：接线（TXD->P1.0 / RXD->P1.1）或固件未运行。")
+        return 0
+
+    print(
+        f"[probe] 自环 FAIL：发出 {len(payload)} B，收回 {len(got)} B"
+    )
+    if got:
+        print(f"        {preview(bytes(got))}")
+    else:
+        print("        没有收回任何字节。")
+    print("        1) 确认短接的是适配器自己的 TXD 与 RXD（不是接到板子的两根）；")
+    print("        2) 确认 CH340 驱动正常、换一根 USB 数据线/换 USB 口；")
+    print("        3) 有的模块是 3.3V/5V 跳线，确认供电跳线正确。")
+    return 1
+
+
 def listen(device: str, baud: int, seconds: float) -> int:
     print(f"[probe] 监听 {device} @ {baud} 8N1，{seconds:.1f} s ...")
     try:
@@ -413,6 +456,11 @@ def main() -> int:
     parser.add_argument("--wait", type=float, default=2.5, help="等待上电横幅秒数")
     parser.add_argument("--autobaud", action="store_true", help="收不到数据时扫描波特率")
     parser.add_argument("--listen", type=float, metavar="SECONDS", help="只监听")
+    parser.add_argument(
+        "--loopback",
+        action="store_true",
+        help="USB-TTL 自环测试（先短接适配器 TXD/RXD）",
+    )
     args = parser.parse_args()
 
     try:
@@ -420,6 +468,9 @@ def main() -> int:
     except SystemExit as error:
         print(error)
         return 2
+
+    if args.loopback:
+        return loopback(device, args.baud)
 
     if args.listen is not None:
         return listen(device, args.baud, args.listen)

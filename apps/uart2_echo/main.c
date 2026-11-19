@@ -25,11 +25,11 @@
 #endif
 
 #define TIMER0_RELOAD ((unsigned int)(65536UL - (FOSC / 1000UL)))
-#define IDLE_HEARTBEAT_MS 1000u
+#define IDLE_REPORT_MS 300u
 
 static __data volatile unsigned int ms_ticks;
 static unsigned int rx_total;
-static unsigned int heartbeat_total;
+static unsigned int report_total;
 static unsigned int last_activity_ms;
 
 void timer0_isr(void) __interrupt (1)
@@ -63,23 +63,21 @@ static void write_ulong(unsigned long value)
         uart2_write_byte((unsigned char)digits[--count]);
 }
 
-static void send_banner(void)
+/*
+ * 状态行同时兼作上电横幅与心跳：
+ *   U2 READY baud=<baud> fosc=<FOSC> hb=<n> rx=<n>
+ * 主机收到它即可判定 P1.1 -> PC 方向正常。
+ */
+static void send_status(void)
 {
     uart2_write("\r\nU2 READY baud=");
     write_ulong(UART2_ECHO_BAUD);
     uart2_write(" fosc=");
     write_ulong((unsigned long)FOSC);
-    uart2_write("\r\n");
-}
-
-static void send_heartbeat(unsigned int uptime_ms)
-{
-    uart2_write("\r\nU2 HB ");
-    write_ulong((unsigned long)heartbeat_total);
+    uart2_write(" hb=");
+    write_ulong((unsigned long)report_total);
     uart2_write(" rx=");
     write_ulong((unsigned long)rx_total);
-    uart2_write(" uptime=");
-    write_ulong((unsigned long)uptime_ms);
     uart2_write("\r\n");
 }
 
@@ -89,6 +87,17 @@ void main(void)
     unsigned int now;
 
     board_init();
+    uart2_init(UART2_ECHO_BAUD);
+
+    /*
+     * 先连发 3 次状态行，再打开 Timer0 中断：
+     * 即使中断向量区没烧好、程序在 1 ms 后跑飞，也能证明 P1.1 有输出。
+     */
+    send_status();
+    ms_delay(20);
+    send_status();
+    ms_delay(20);
+    send_status();
 
     timer0_init(TIMER0_RELOAD);
     ms_ticks = 0;
@@ -96,9 +105,6 @@ void main(void)
     EA = 1;
     timer0_start();
 
-    uart2_init(UART2_ECHO_BAUD);
-
-    send_banner();
     last_activity_ms = millis();
 
     for (;;)
@@ -113,10 +119,10 @@ void main(void)
         }
 
         now = millis();
-        if ((unsigned int)(now - last_activity_ms) >= IDLE_HEARTBEAT_MS)
+        if ((unsigned int)(now - last_activity_ms) >= IDLE_REPORT_MS)
         {
-            heartbeat_total++;
-            send_heartbeat(now);
+            report_total++;
+            send_status();
             last_activity_ms = millis();
         }
     }

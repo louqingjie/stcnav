@@ -56,8 +56,17 @@ void uart2_init(unsigned long baud)
     T2H = (unsigned char)(reload >> 8);
     AUXR = (unsigned char)(AUXR | 0x14); /* Timer2 1T、启动 */
 
-    /* 模式 0（8 位 UART）、S2REN=1；写整个寄存器同时清 S2RI/S2TI。 */
-    S2CON = 0x10;
+    /*
+     * 串口2 模式 1：8 位数据、可变波特率，并允许接收（S2REN=1）。
+     *
+     * STC32G 的 S2CON 是 4 模式结构（S2SM0=S2CON^7、S2SM1=S2CON^6，见官方
+     * STC32G.H 与 STC32G-SOFTWARE-LIB 中 UART_8bit_BRTx=(1<<6)）：
+     *   00=模式0 同步移位，01=模式1 8位UART，10=模式2 9位固定，11=模式3 9位可变。
+     * 写成 0x10（S2SM1=0）会落到模式0 同步移位，P1.1 输出的是移位时钟而不是
+     * UART 帧，CH340/上位机只能收到噪声。官方库初始化后的 S2CON 即 0x50。
+     * 写整个寄存器同时清 S2RI/S2TI。
+     */
+    S2CON = 0x50;
 }
 
 void uart2_write_byte(unsigned char data)
