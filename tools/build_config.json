@@ -81,6 +81,16 @@
       ],
       "free_rtos": false
     },
+    "boot_trace": {
+      "sources": [
+        "apps/boot_trace/main.c",
+        "libs/stc32g/hal/src/stc32g_uart2.c",
+        "libs/stc32g/hal/src/stc32g_iap.c"
+      ],
+      "code_start": "0xFE0400",
+      "code_end": "0xFEFDFF",
+      "free_rtos": false
+    },
     "mpu6050_uart": {
       "sources": [
         "apps/mpu6050_uart/main.c",
@@ -228,6 +238,7 @@
   },
   "per_app_ldflags": {
     "bootloader": ["-Wl-b GSINIT0=0xfe0000"],
+    "boot_trace": ["-Wl-b GSINIT0=0xfe0400"],
     "vehicle": ["-Wl-b GSINIT0=0xfe0400"],
     "vehicle_debug": ["-Wl-b GSINIT0=0xfe0400"]
   },
