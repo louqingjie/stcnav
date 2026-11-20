@@ -247,9 +247,13 @@ void main(void)
 #if VEHICLE_DEBUG
         uart1_write("NRF FAIL\r\n");
 #else
+        VT_PUSH("P"); /* expansion_stop 前 */
         expansion_stop();
+        VT_PUSH("Q"); /* expansion_stop 后 */
 #endif
+        VT_PUSH("S");
         V2_SERVICE_WAIT(500);
+        VT_PUSH("s");
     }
 #if VEHICLE_DEBUG
     uart1_write("NRF OK\r\n");
@@ -257,6 +261,7 @@ void main(void)
 
     gimbal_set_target(0.0f);
     last_control = millis();
+    VT_PUSH("K"); /* 已过 NRF 初始化，进入主循环 */
 #if VEHICLE_DEBUG
     last_print = last_control;
     uart1_write("conn,lv,lh,rv,rh,key,chy,gya,gtg,w0,w1,w2,w3,gd\r\n");
@@ -277,15 +282,20 @@ void main(void)
         if (dt > 0.5f)
             dt = 0.5f;
 
+        VT_PUSH("C");
         remote_poll(now);
+        VT_PUSH("D");
         imu_ok = imu_update(dt);
+        VT_PUSH("E");
 
         if (!imu_ok)
         {
             /* IMU 故障：先停车、撤销 ready，再重新初始化，期间保持心跳。 */
             V2_SET_READY(0);
 #if !VEHICLE_DEBUG
+            VT_PUSH("X");
             expansion_stop();
+            VT_PUSH("x");
 #endif
             chassis_stop();
             spin_mode = 0;
@@ -375,6 +385,7 @@ void main(void)
             }
         }
         last_owner = owner;
+        VT_PUSH("F");
 
         if (!remote_connected())
         {
@@ -406,6 +417,7 @@ void main(void)
 
             expansion_apply(motor_dir, motor_duty);
         }
+        VT_PUSH("M");
 #endif
 
 #if VEHICLE_DEBUG
