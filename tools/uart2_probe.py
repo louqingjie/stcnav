@@ -298,7 +298,7 @@ def probe_once(device: str, args) -> bool:
             else:
                 print(
                     f"[probe] 速率测量失真（≈{measured:.0f} baud），忽略；"
-                    "真实串口上该值用于判断 IRC 是否偏离 35 MHz。"
+                    "USB-TTL 会把字节攒包再上报，单块计时不可靠。"
                 )
 
         rx_after = None

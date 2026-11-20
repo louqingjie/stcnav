@@ -200,3 +200,18 @@ S2CON = 0x50;
 - 结论：P1.0/P1.1 引脚、接线、电平与 STC32G 的 UART2 硬件均正常；
   此前"P1.1 无输出"完全由本仓库 SDCC 固件的 UART2 寄存器配置导致
   （`S2CON=0x10` 模式0 同步移位，见第 2 节第 1 条）。
+
+### 5.2 修复后的 SDCC 固件实测（2026-11-20，`apps/uart2_echo`）
+
+烧录 `build/uart2_echo/uart2_echo.hex`（115200、FOSC=35 MHz）后用
+`tools/uart2_probe.py --port COM3 --autobaud` 探测：
+
+```
+[probe] TX(MCU->PC): PASS  状态行: U2 READY baud=115200 fosc=35000000 hb=77 rx=0
+[probe] 回显: 发送 1024 B，匹配 1024 B，错误 0 B，丢失 0 B
+[probe] MCU rx 计数 +1024（本次发送 1024 B）
+[probe] 结论：P1.0(RxD2)/P1.1(TxD2) 双向收发正常。
+```
+
+即修复 `S2CON=0x50` + `S2RI/S2TI` 掩码 + `ES2=IE2.0` 之后，本仓库 SDCC 固件的
+P1.0/P1.1 收发与 Keil 官方库实验固件一致。
