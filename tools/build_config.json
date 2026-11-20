@@ -248,26 +248,6 @@
       "free_rtos": false,
       "code_start": "0xFE4000",
       "code_end": "0xFEFFFF"
-    },
-    "vehicle_trace_nowdt": {
-      "sources": [
-        "libs/stc32g/hal/src/stc32g_wdt.c",
-        "apps/vehicle/main.c",
-        "apps/vehicle/remote.c",
-        "apps/vehicle/expansion.c",
-        "apps/vehicle/imu.c",
-        "apps/vehicle/chassis.c",
-        "apps/vehicle/gimbal.c",
-        "apps/vehicle/timebase.c",
-        "apps/vehicle/v2_codec.c",
-        "apps/vehicle/v2_link.c",
-        "libs/stc32g/hal/src/stc32g_i2c.c",
-        "libs/stc32g/hal/src/stc32g_uart2.c",
-        "libs/stc32g/hal/src/stc32g_iap.c"
-      ],
-      "code_start": "0xFE0400",
-      "code_end": "0xFEFFFF",
-      "free_rtos": false
     }
   },
   "per_app_cflags": {
@@ -299,11 +279,6 @@
     "iap_selftest": [
       "-DSTC32G_USB_HID_PID=0xFF03",
       "-DSTC32G_USB_HID_PRODUCT=\"stcnav iap test\""
-    ],
-    "vehicle_trace_nowdt": [
-      "-DIMU_PUBLISH_V2=1",
-      "-DVEHICLE_TRACE=1",
-      "-DVEHICLE_NO_WDT=1"
     ]
   },
   "per_app_ldflags": {
@@ -320,9 +295,6 @@
       "-Wl-b GSINIT0=0xfe0400"
     ],
     "vehicle_trace": [
-      "-Wl-b GSINIT0=0xfe0400"
-    ],
-    "vehicle_trace_nowdt": [
       "-Wl-b GSINIT0=0xfe0400"
     ]
   },
