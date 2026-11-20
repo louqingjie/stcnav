@@ -13,3 +13,6 @@
 *.mem
 __pycache__/
 *.pyc
+
+# 本机 STC32G 芯片手册（67 MB）：AGENTS.md 规定的 HAL 编写依据，不入库。
+/docs/STC32G.pdf
