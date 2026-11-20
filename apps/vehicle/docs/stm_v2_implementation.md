@@ -219,3 +219,28 @@ python3 tools/build.py --app vehicle_tune       # 云台调参（UART2 轮询模
    使 50/10 Hz 实际落在 44~49.6 / 9.0~10.0 Hz。若要严格 50 Hz，需要固定节拍
    （例如把状态发送放到 Timer0 中断或缩短控制周期）。
 
+### 11.1 看门狗（WDT）与自恢复
+
+- `main()` 在 `board_init()` 后调用 `wdt_init(6)`（WDT_CONTR=0xC1，35 MHz 约 1.44 s），
+  主循环、`delay_ms()`、`service_wait()` 都会 `wdt_feed()`；卡死时自动复位重来，
+  不再永久静默（复位后 `boot_id` 递增，Host 可据此重新建会话）。
+- **坑**：不要用「读回 `WDT_CONTR` 再掩码保留 `WDT_PS`」的方式喂狗。实测该寄存器
+  读回值会丢失 `WDT_PS`，导致每次喂狗把分频写成 0，超时从 1.44 s 变成约 22 ms，
+  现象是上电后 ~120 ms 一次的复位循环（115200 上 `VT 0/1/2` 反复出现、`VT 4` 永不出现）。
+  驱动里改为用静态变量保存分频值、整字节写。
+
+### 11.2 真机抓包流程（不阻塞）
+
+```bash
+# 后台采集：前 10 s 115200（抓启动打印），随后 540 s 230400（抓 V2 帧）
+python tools/uart2_log.py --port COM23 --plan "115200:10,230400:540" --out build/uart2_live.log
+# 离线分析（任意时刻跑，不影响采集）
+python tools/uart2_log_analyze.py build/uart2_live.log
+```
+
+日志每行一个接收块（`<epoch> <hex>`），分析脚本会给出：帧统计/长度、按 `boot_id`
+分段的频率与心跳字段、编码拒发标记 `1..7`（1=source_boot 0，2=非有限值，3=范数超差，
+4/5=0x82，6/7=0x85）、阶段标记 `B/C/D/E/F/M`（V2_POLL 前/后、remote_poll、imu_update、
+控制分支、输出）以及静默区间。
+
+
