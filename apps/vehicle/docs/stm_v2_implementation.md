@@ -263,9 +263,18 @@ python3 tools/build.py --app vehicle_tune       # 云台调参（UART2 轮询模
 ```bash
 # 后台采集：前 10 s 115200（抓启动打印），随后 540 s 230400（抓 V2 帧）
 python tools/uart2_log.py --port COM23 --plan "115200:10,230400:540" --out build/uart2_live.log
+# 验证 UART2 静默竞态：主机侧同时按 50 Hz 发 0x03 心跳（只收不发几乎不触发）
+python tools/uart2_log.py --port COM23 --plan "230400:1800" --host-hb-hz 50 --out build/uart2_after_fix.log
 # 离线分析（任意时刻跑，不影响采集）
-python tools/uart2_log_analyze.py build/uart2_live.log
+python tools/uart2_log_analyze.py build/uart2_after_fix.log
 ```
+
+修复后的验收标准（对照修复前：主机发心跳时 10~120 s 内必静默）：
+
+- `sessions=1`：整段只有一个 `boot_id`（没有 WDT 复位），心跳持续到最后；
+- 帧统计连续，没有长静默区间；`0x82/0x85` 频率回到 40 Hz 以上；
+- 若出现 `t` 标记/`tx_stalls`，说明竞态仍偶发但被看门狗在毫秒级恢复（可接受）；
+- 一个都不出现则说明位清标志已把竞态消除（理想结果）。
 
 日志每行一个接收块（`<epoch> <hex>`），分析脚本会给出：帧统计/长度、按 `boot_id`
 分段的频率与心跳字段、编码拒发标记 `1..7`（1=source_boot 0，2=非有限值，3=范数超差，
