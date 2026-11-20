@@ -12,6 +12,17 @@
 
 #define V2_PI_F 3.14159265358979323846f
 
+/*
+ * VEHICLE_TRACE 构建里用单字节标记上报"编码拒发"原因（1=source_boot 0，
+ * 2=非有限值，3=范数超差；4/5=0x82，6/7=0x85）。正式构建不产生代码。
+ */
+#if defined(__SDCC_mcs251) && VEHICLE_TRACE
+#include "stc32g_uart2.h"
+#define V2_TRACE_FAIL(tag) uart2_tx_push((const unsigned char *)(tag), 1u)
+#else
+#define V2_TRACE_FAIL(tag) ((void)0)
+#endif
+
 #if defined(__SDCC_mcs251)
 #define V2_DATA __data
 #else
@@ -228,10 +239,16 @@ uint16_t v2_encode_gimbal_state(uint16_t sequence)
 
     yaw = v2_tx_gimbal.relative_yaw_rad;
     if (!V2_FINITE(yaw) || yaw < -V2_PI_F || yaw >= V2_PI_F)
+    {
+        V2_TRACE_FAIL("4");
         return 0;
+    }
     rate = v2_tx_gimbal.yaw_rate_rad_s;
     if (!V2_FINITE(rate))
+    {
+        V2_TRACE_FAIL("5");
         return 0;
+    }
 
     put_f32_value(8, yaw);
     put_f32_value(12, rate);
@@ -250,10 +267,16 @@ uint16_t v2_encode_chassis_heading_state(uint16_t sequence)
 
     yaw = v2_tx_heading.yaw_rad;
     if (!V2_FINITE(yaw) || yaw < -V2_PI_F || yaw >= V2_PI_F)
+    {
+        V2_TRACE_FAIL("6");
         return 0;
+    }
     rate = v2_tx_heading.yaw_rate_rad_s;
     if (!V2_FINITE(rate))
+    {
+        V2_TRACE_FAIL("7");
         return 0;
+    }
 
     put_f32_value(8, yaw);
     put_f32_value(12, rate);
@@ -276,7 +299,10 @@ uint16_t v2_encode_chassis_attitude_state(uint16_t sequence)
     static uint8_t flags;
 
     if (v2_tx_attitude.source_boot_id == 0UL)
+    {
+        V2_TRACE_FAIL("1");
         return 0;
+    }
 
     /* 四元数做有限性与范数校验；gyro/acc 来自 int16 换算，必为有限值。 */
     qx = v2_tx_attitude.orientation_x;
@@ -284,7 +310,10 @@ uint16_t v2_encode_chassis_attitude_state(uint16_t sequence)
     qz = v2_tx_attitude.orientation_z;
     qw = v2_tx_attitude.orientation_w;
     if (!V2_FINITE(qx) || !V2_FINITE(qy) || !V2_FINITE(qz) || !V2_FINITE(qw))
+    {
+        V2_TRACE_FAIL("2");
         return 0;
+    }
 
     if (v2_tx_attitude.orientation_valid)
     {
@@ -292,7 +321,10 @@ uint16_t v2_encode_chassis_attitude_state(uint16_t sequence)
         f32_scratch.f = qx * qx + qy * qy + qz * qz + qw * qw;
         if (!V2_FINITE(f32_scratch.f) || f32_scratch.f < 0.998f ||
             f32_scratch.f > 1.002f)
+        {
+            V2_TRACE_FAIL("3");
             return 0;
+        }
     }
 
     flags = 0;

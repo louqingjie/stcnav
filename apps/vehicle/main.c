@@ -275,6 +275,7 @@ void main(void)
     for (;;)
     {
         now = millis();
+        VT_PUSH("B");
 
         V2_POLL(now, imu_ok);
 
