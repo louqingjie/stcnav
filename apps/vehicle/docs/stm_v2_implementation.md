@@ -130,9 +130,12 @@ Timer2，因此 **UART1 与 UART2 必须保持同一波特率 230400**；修改
     不必再设 64K/全片。若 IAP 失败仍返回非零 fallback，`boot_persist_fault=1`。
   * 重新烧录会擦除该扇区，计数从 1 重新开始；Host 若保留退役 boot 表，重刷后
     请重启 Host 会话。
-- 代码/常量上限 `code_end = 0xFEFDFF`，由 `tools/check_layout.py` 强制；当前
-  vehicle 使用约 63.3 KB（从 0xFE0400 起算，余量约 0.7 KB，新增代码需先做尺寸评估）。
-- XRAM 约 2.0 KB / 8 KB；EDATA 栈约 89 B（`--stack-auto`），新代码禁止大局部变量。
+- 代码/常量上限 `code_end = 0xFEFFFF`（程序区 0xFE0400–0xFEFFFF 共 64 KB 减 1 KB EEPROM），
+  由 `tools/check_layout.py` 强制；当前 vehicle 约 63.3 KB，新增代码需先做尺寸评估。
+- **主循环的大局部变量必须声明为 `static`**（大模型下进 XDATA）：EDATA 总共只有 128 B，
+  全局已占 0x00–0x26，`--stack-auto` 的栈仅 89 B；`imu_update`/`i2c` 这类深调用叠加
+  UART2 发送中断会栈溢出跑飞（现象：V2 流跑几毫秒后突然中断，芯片不死机复位）。
+- XRAM 约 1.5 KB / 8 KB。
 
 ## 8. 构建、烧录与自检
 

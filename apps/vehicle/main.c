@@ -165,24 +165,29 @@ static void debug_print(signed short gimbal_duty)
 
 void main(void)
 {
-    unsigned int last_control;
-    unsigned int now;
-    unsigned int elapsed;
-    float dt;
-    unsigned char spin_mode = 0;
-    unsigned char last_e = 0;
-    unsigned char imu_ok = 0;
-    unsigned char index;
-    unsigned char owner = OWNER_NONE;
-    unsigned char last_owner = OWNER_NONE;
-    signed short gimbal_duty = 0;
+    /*
+     * 这些变量改为 static：SDCC 大模型下 static 分配到 XDATA，不再占用内部 RAM
+     * 的 89 B 栈（--stack-auto）。否则主循环里 imu_update 等深调用 + UART2
+     * 发送中断会把返回地址挤出 EDATA 栈，运行几毫秒后跑飞。
+     */
+    static unsigned int last_control;
+    static unsigned int now;
+    static unsigned int elapsed;
+    static float dt;
+    static unsigned char spin_mode;
+    static unsigned char last_e;
+    static unsigned char imu_ok;
+    static unsigned char index;
+    static unsigned char owner = (unsigned char)OWNER_NONE;
+    static unsigned char last_owner = (unsigned char)OWNER_NONE;
+    static signed short gimbal_duty;
 #if !VEHICLE_DEBUG
-    float vx;
-    float vy;
-    float wz;
-    unsigned long boot_id;
+    static float vx;
+    static float vy;
+    static float wz;
+    static unsigned long boot_id;
 #else
-    unsigned int last_print;
+    static unsigned int last_print;
 #endif
 
     board_init();

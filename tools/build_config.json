@@ -64,7 +64,9 @@
   ],
   "apps": {
     "hello_uart": {
-      "sources": ["apps/hello_uart/main.c"],
+      "sources": [
+        "apps/hello_uart/main.c"
+      ],
       "free_rtos": false
     },
     "uart2_echo": {
@@ -121,7 +123,7 @@
         "libs/stc32g/hal/src/stc32g_iap.c"
       ],
       "code_start": "0xFE0400",
-      "code_end": "0xFEFDFF",
+      "code_end": "0xFEFFFF",
       "free_rtos": false
     },
     "vehicle_debug": {
@@ -138,7 +140,7 @@
         "libs/stc32g/hal/src/stc32g_i2c.c"
       ],
       "code_start": "0xFE0400",
-      "code_end": "0xFEFDFF",
+      "code_end": "0xFEFFFF",
       "free_rtos": false
     },
     "vehicle_trace": {
@@ -157,7 +159,7 @@
         "libs/stc32g/hal/src/stc32g_iap.c"
       ],
       "code_start": "0xFE0400",
-      "code_end": "0xFEFDFF",
+      "code_end": "0xFEFFFF",
       "free_rtos": false
     },
     "vehicle_tune": {
@@ -193,19 +195,27 @@
       "free_rtos": false
     },
     "freertos_coop": {
-      "sources": ["apps/freertos_coop/main.c"],
+      "sources": [
+        "apps/freertos_coop/main.c"
+      ],
       "free_rtos": true
     },
     "timer_irq": {
-      "sources": ["apps/timer_irq/main.c"],
+      "sources": [
+        "apps/timer_irq/main.c"
+      ],
       "free_rtos": false
     },
     "dpXL_test": {
-      "sources": ["apps/dpXL_test/main.c"],
+      "sources": [
+        "apps/dpXL_test/main.c"
+      ],
       "free_rtos": false
     },
     "freertos_blinky": {
-      "sources": ["apps/freertos_blinky/main.c"],
+      "sources": [
+        "apps/freertos_blinky/main.c"
+      ],
       "free_rtos": true
     },
     "usb_hid_isp": {
@@ -242,11 +252,23 @@
       "-DMPU6050_COUNT=2",
       "-DMPU6050_UART_GROUP=3"
     ],
-    "uart2_echo_230400": ["-DUART2_ECHO_BAUD=230400UL"],
-    "vehicle": ["-DIMU_PUBLISH_V2=1"],
-    "vehicle_debug": ["-DVEHICLE_DEBUG=1", "-DIMU_PUBLISH_V2=1"],
-    "vehicle_trace": ["-DIMU_PUBLISH_V2=1", "-DVEHICLE_TRACE=1"],
-    "freertos_coop": ["-DconfigUSE_PREEMPTION=0"],
+    "uart2_echo_230400": [
+      "-DUART2_ECHO_BAUD=230400UL"
+    ],
+    "vehicle": [
+      "-DIMU_PUBLISH_V2=1"
+    ],
+    "vehicle_debug": [
+      "-DVEHICLE_DEBUG=1",
+      "-DIMU_PUBLISH_V2=1"
+    ],
+    "vehicle_trace": [
+      "-DIMU_PUBLISH_V2=1",
+      "-DVEHICLE_TRACE=1"
+    ],
+    "freertos_coop": [
+      "-DconfigUSE_PREEMPTION=0"
+    ],
     "bootloader": [
       "-DSTC32G_USB_HID_PID=0xFF02",
       "-DSTC32G_USB_HID_PRODUCT=\"stcnav bootloader\""
@@ -257,14 +279,28 @@
     ]
   },
   "per_app_ldflags": {
-    "bootloader": ["-Wl-b GSINIT0=0xfe0000"],
-    "boot_trace": ["-Wl-b GSINIT0=0xfe0400"],
-    "vehicle": ["-Wl-b GSINIT0=0xfe0400"],
-    "vehicle_debug": ["-Wl-b GSINIT0=0xfe0400"],
-    "vehicle_trace": ["-Wl-b GSINIT0=0xfe0400"]
+    "bootloader": [
+      "-Wl-b GSINIT0=0xfe0000"
+    ],
+    "boot_trace": [
+      "-Wl-b GSINIT0=0xfe0400"
+    ],
+    "vehicle": [
+      "-Wl-b GSINIT0=0xfe0400"
+    ],
+    "vehicle_debug": [
+      "-Wl-b GSINIT0=0xfe0400"
+    ],
+    "vehicle_trace": [
+      "-Wl-b GSINIT0=0xfe0400"
+    ]
   },
   "per_file_cflags": {
-    "port.c": ["--opt-code-speed"],
-    "stc32g_timer.c": ["--opt-code-speed"]
+    "port.c": [
+      "--opt-code-speed"
+    ],
+    "stc32g_timer.c": [
+      "--opt-code-speed"
+    ]
   }
 }
