@@ -66,7 +66,7 @@ static void i2c_write_bit(unsigned char value)
 
 static unsigned char i2c_read_bit(void)
 {
-    unsigned char value;
+    static unsigned char value; /* EDATA 栈紧张：热路径局部变量一律 static */
 
     SDA_HIGH();
     i2c_delay();
@@ -81,8 +81,8 @@ static unsigned char i2c_read_bit(void)
 
 unsigned char i2c_write(unsigned char value)
 {
-    unsigned char index;
-    unsigned char ack;
+    static unsigned char index;
+    static unsigned char ack;
 
     for (index = 0; index < 8; index++)
     {
@@ -103,8 +103,9 @@ unsigned char i2c_write(unsigned char value)
 
 unsigned char i2c_read(unsigned char ack)
 {
-    unsigned char index;
-    unsigned char value = 0;
+    static unsigned char index;
+    static unsigned char value;
+    value = 0;
 
     SDA_HIGH();
     for (index = 0; index < 8; index++)
@@ -146,8 +147,9 @@ unsigned char i2c_write_reg(unsigned char address, unsigned char reg, unsigned c
 unsigned char i2c_read_bytes(unsigned char address, unsigned char reg,
                                     unsigned char *buffer, unsigned char length)
 {
-    unsigned char index;
-    unsigned char status = 0;
+    static unsigned char index;
+    static unsigned char status;
+    status = 0;
 
     if (length == 0)
         return 1;

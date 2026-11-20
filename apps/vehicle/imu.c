@@ -119,12 +119,12 @@ static float wrap180(float angle)
 /* 1/sqrt 近似：IEEE-754 位技巧 + 两次牛顿迭代。 */
 static float inv_sqrt(float value)
 {
-    union
+    static union
     {
         float f;
         unsigned long u;
     } bits;
-    float approx;
+    static float approx;
 
     bits.f = value;
     bits.u = INV_SQRT_MAGIC - (bits.u >> 1);

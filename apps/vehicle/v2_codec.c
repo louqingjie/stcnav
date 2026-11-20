@@ -221,8 +221,10 @@ uint16_t v2_encode_heartbeat(uint16_t sequence)
 
 uint16_t v2_encode_gimbal_state(uint16_t sequence)
 {
-    float yaw;
-    float rate;
+    /* 局部变量 static：EDATA 栈只有 89 B，编码路径处于 UART2 中断可抢占的
+       深层调用里，必须避免占用栈。 */
+    static float yaw;
+    static float rate;
 
     yaw = v2_tx_gimbal.relative_yaw_rad;
     if (!V2_FINITE(yaw) || yaw < -V2_PI_F || yaw >= V2_PI_F)
@@ -243,8 +245,8 @@ uint16_t v2_encode_gimbal_state(uint16_t sequence)
 
 uint16_t v2_encode_chassis_heading_state(uint16_t sequence)
 {
-    float yaw;
-    float rate;
+    static float yaw;
+    static float rate;
 
     yaw = v2_tx_heading.yaw_rad;
     if (!V2_FINITE(yaw) || yaw < -V2_PI_F || yaw >= V2_PI_F)
@@ -267,11 +269,11 @@ uint16_t v2_encode_chassis_heading_state(uint16_t sequence)
 
 uint16_t v2_encode_chassis_attitude_state(uint16_t sequence)
 {
-    float qx;
-    float qy;
-    float qz;
-    float qw;
-    uint8_t flags;
+    static float qx;
+    static float qy;
+    static float qz;
+    static float qw;
+    static uint8_t flags;
 
     if (v2_tx_attitude.source_boot_id == 0UL)
         return 0;

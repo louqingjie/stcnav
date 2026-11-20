@@ -224,9 +224,10 @@ void v2_link_init(unsigned long id, unsigned int now_ms)
 
 void v2_link_poll(unsigned int now_ms, unsigned char imu_ok)
 {
-    unsigned char result;
-    unsigned char rx_byte;
-    unsigned int budget = 0;
+    static unsigned char result;
+    static unsigned char rx_byte;
+    static unsigned int budget;
+    budget = 0;
 
     while (budget < V2_RX_BUDGET && uart2_rx_pop(&rx_byte))
     {
@@ -343,7 +344,7 @@ const v2_diag_t *v2_link_diagnostics(void)
 
 static void send_heartbeat_frame(void)
 {
-    uint16_t size;
+    static uint16_t size;
 
     v2_tx_heartbeat.uptime_ms = (uint32_t)millis32();
     v2_tx_heartbeat.boot_id = (uint32_t)boot_id;
@@ -369,7 +370,7 @@ static void send_heartbeat_frame(void)
 
 static void send_state_frames(void)
 {
-    uint16_t size;
+    static uint16_t size;
 
     /* 0x82 GimbalState：相对 yaw / 相对 yaw 速率。 */
     v2_tx_gimbal.relative_yaw_rad = degrees_to_pi_radians(

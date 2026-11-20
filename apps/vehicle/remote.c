@@ -57,7 +57,7 @@ static unsigned char nrf_link_readback[5];
 
 static unsigned char spi_transfer(unsigned char value)
 {
-    unsigned char index;
+    static unsigned char index; /* EDATA 栈只有 89 B：热路径局部变量 static */
     unsigned char result = 0;
 
     for (index = 0; index < 8; index++)
