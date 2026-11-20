@@ -338,6 +338,23 @@ static void attitude_update(float dt)
     gravity_z = yaw_cos_half * tilt_y - yaw_sin_half * tilt_x;
     tilt_w = yaw_sin_half * tilt_w;
 
+    /*
+     * 发布前把四元数归一化：V2 编码器要求 orientation_valid 帧满足
+     * |norm-1| <= 1e-3，否则整帧丢弃（实测不改时会丢 20~50% 的 0x88 帧，
+     * 频率掉到 20~40 Hz）。yaw 增量与倾角四元数相乘后可能出现范数漂移，
+     * 这里每帧做一次 Newton 逆平方根归一化。
+     */
+    norm2 = gravity_y * gravity_y + gravity_z * gravity_z +
+            tilt_w * tilt_w + gravity_x * gravity_x;
+    if (norm2 > 1.0e-6f && norm2 < 4.0f)
+    {
+        inverse_norm = inv_sqrt(norm2);
+        gravity_y *= inverse_norm;
+        gravity_z *= inverse_norm;
+        tilt_w *= inverse_norm;
+        gravity_x *= inverse_norm;
+    }
+
 #if IMU_PUBLISH_V2
     v2_tx_attitude.orientation_x = gravity_y;
     v2_tx_attitude.orientation_y = gravity_z;
