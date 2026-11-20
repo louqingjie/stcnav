@@ -33,6 +33,9 @@ static float delta;
 
 static float wrap180(float angle)
 {
+    /* ±inf 会让 while 永不结束（防御性：yaw 链路异常时不要挂死）。 */
+    if (angle > 1.0e5f || angle < -1.0e5f)
+        return 0.0f;
     while (angle > 180.0f)
         angle -= 360.0f;
     while (angle < -180.0f)

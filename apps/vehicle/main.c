@@ -19,6 +19,7 @@
 #include "timebase.h"
 #include "common.h"
 #include "stc32g_timer.h"
+#include "stc32g_wdt.h"
 #include "stc32g_uart.h"
 #include "stc32g_i2c.h"
 #if VEHICLE_DEBUG
@@ -82,6 +83,7 @@ void delay_ms(unsigned int ms)
 
     while ((unsigned int)(millis() - start) < ms)
     {
+        wdt_feed();
     }
 }
 
@@ -92,7 +94,10 @@ static void service_wait(unsigned int wait_ms)
     unsigned int start = millis();
 
     while ((unsigned int)(millis() - start) < wait_ms)
+    {
+        wdt_feed();
         v2_link_poll(millis(), 0);
+    }
 }
 #endif
 
@@ -192,6 +197,16 @@ void main(void)
 
     board_init();
 
+    /*
+     * 看门狗：35 MHz、WDT_PS=6 -> 约 1.44 s（手册 9.1.1 溢出时间公式）。
+     * 主循环 / delay_ms() / service_wait() 都会喂狗；若还有 CPU 级挂死
+     * （非 UART2 TX 停摆那类可自恢复故障），自动复位重来而不是永久静默。
+     * 复位后 boot_id 递增，上位机可据此重建会话。
+     */
+#ifndef VEHICLE_NO_WDT
+    wdt_init(6);
+#endif
+
 #if VEHICLE_TRACE
     uart2_init(115200UL);
     uart2_write("\r\nVT 0 board\r\n");
@@ -274,6 +289,7 @@ void main(void)
 
     for (;;)
     {
+        wdt_feed();
         now = millis();
         VT_PUSH("B");
 

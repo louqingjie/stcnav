@@ -57,9 +57,14 @@ void uart1_init(unsigned long baud, unsigned char pin_group)
 
 void uart1_write_byte(unsigned char data)
 {
+    unsigned int spin = 0;
+
     SBUF = data;
     while (!TI)
     {
+        /* 超时保护：正常单字节 43 us 量级；TI 异常时不至于死等（看门狗兜底）。 */
+        if (++spin >= 8000u)
+            break;
     }
     TI = 0;
 }

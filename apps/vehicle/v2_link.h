@@ -25,6 +25,7 @@ typedef struct
     unsigned int tx_frames;
     unsigned int tx_drops;
     unsigned int tx_overflows;
+    unsigned int tx_stalls;
     unsigned char boot_persist_fault;
     unsigned char host_online;
     unsigned char command_fresh;

@@ -34,6 +34,14 @@ void uart2_irq_handler(void);
 unsigned int uart2_rx_pop(unsigned char *data);
 unsigned char uart2_tx_push(const unsigned char *data, unsigned int length);
 
+/*
+ * TX 停滞看门狗（中断异步模式下务必在主循环里周期调用，建议每轮一次）：
+ * 连续若干 ms 没有装填新字节时丢弃当前半帧并复位 TX 环，返回 1。
+ * 用于兜底 S2TI 被意外覆盖导致的"TX 永久停在半帧"（现象：静默、不复位）。
+ */
+unsigned char uart2_tx_service(unsigned int now_ms);
+
 unsigned int uart2_tx_overflow_count(void);
+unsigned int uart2_tx_stall_count(void);
 
 #endif

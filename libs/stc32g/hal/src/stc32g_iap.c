@@ -14,6 +14,7 @@
 #include "common.h"
 
 static unsigned char iap_error;
+static unsigned char iap_saved_psw2;
 
 static void iap_set_address(unsigned long address)
 {
@@ -45,6 +46,9 @@ static unsigned char iap_execute(void)
 
 void iap_begin(void)
 {
+    /* 保存并在 iap_end() 恢复 P_SW2（EAXFR 是 P_SW2.7，手册 P_SW2 一节），
+       避免 IAP 结束后把 EAXFR 永久留在 1。 */
+    iap_saved_psw2 = P_SW2;
     P_SW2 |= 0x80; /* EAXFR */
     IAP_TPS = (unsigned char)((FOSC + 500000UL) / 1000000UL);
     IAP_CONTR = 0x80;
@@ -64,6 +68,7 @@ void iap_end(void)
     IAP_ADDRE = 0x00;
     IAP_ADDRH = 0x00;
     IAP_ADDRL = 0x00;
+    P_SW2 = iap_saved_psw2;
 }
 
 unsigned char iap_read_byte(unsigned long address)

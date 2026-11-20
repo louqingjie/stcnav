@@ -109,6 +109,9 @@ static unsigned char filter_started;
 
 static float wrap180(float angle)
 {
+    /* ±inf 会让下面两个 while 永不结束；角度来自 IMU，正常范围 ±180。 */
+    if (angle > 1.0e5f || angle < -1.0e5f)
+        return 0.0f;
     while (angle > 180.0f)
         angle -= 360.0f;
     while (angle < -180.0f)

@@ -26,6 +26,13 @@
 #define V2_BOOT_RECORD_LENGTH 8u
 #define V2_RX_BUDGET 512u
 
+/* VEHICLE_TRACE 构建：TX 停滞恢复打单字节标记 't'（与 main.c 的 B/C/D/E/F/M 同一流）。 */
+#if defined(__SDCC_mcs251) && VEHICLE_TRACE
+#define V2_LINK_TRACE(tag) uart2_tx_push((const unsigned char *)(tag), 1u)
+#else
+#define V2_LINK_TRACE(tag) ((void)0)
+#endif
+
 #define V2_HOST_SEQ_COMMAND 0u
 #define V2_HOST_SEQ_POSTURE 1u
 
@@ -85,6 +92,9 @@ static uint8_t next_host_seq(uint8_t slot, uint16_t sequence);
 
 static float wrap180_degrees(float angle)
 {
+    /* ±inf 会让 while 永不结束（防御性：输入来自 IMU，正常范围 ±180）。 */
+    if (angle > 1.0e5f || angle < -1.0e5f)
+        return 0.0f;
     while (angle > 180.0f)
         angle -= 360.0f;
     while (angle < -180.0f)
@@ -96,6 +106,8 @@ static float degrees_to_pi_radians(float degrees)
 {
     float radians = degrees * V2_DEG_TO_RAD;
 
+    if (radians > 1.0e5f || radians < -1.0e5f)
+        return 0.0f;
     while (radians >= V2_PI_F)
         radians -= V2_TWO_PI_F;
     while (radians < -V2_PI_F)
@@ -229,6 +241,16 @@ void v2_link_poll(unsigned int now_ms, unsigned char imu_ok)
     static unsigned int budget;
     budget = 0;
 
+    /*
+     * TX 停滞看门狗：UART2 ISR 清 S2RI 时理论上仍可能与"发送完成"有极小时序
+     * 交集（见 stc32g_uart2.c 文件头）。一旦 S2TI 丢失，TX 会永久停在半帧；
+     * 这里按进度检测并丢弃半帧重启，保证链路不会"永久静默只能断电"。
+     */
+    if (uart2_tx_service(now_ms))
+    {
+        V2_LINK_TRACE("t"); /* trace 构建：标记一次 TX 停滞恢复 */
+    }
+
     while (budget < V2_RX_BUDGET && uart2_rx_pop(&rx_byte))
     {
         budget++;
@@ -297,6 +319,7 @@ void v2_link_poll(unsigned int now_ms, unsigned char imu_ok)
     diag.rx_crc_errors = v2_decoder_crc_errors;
     diag.rx_framing_errors = v2_decoder_framing_errors;
     diag.tx_overflows = uart2_tx_overflow_count();
+    diag.tx_stalls = uart2_tx_stall_count();
     diag.host_online = host_online;
     diag.ready = ready_flag;
     diag.command_enabled = command_enabled;
