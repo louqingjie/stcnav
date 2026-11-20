@@ -24,6 +24,10 @@ INTERRUPT_RE = re.compile(
     r"\bvoid\s+([A-Za-z_]\w*)\s*\([^)]*\)[^;{]*"
     r"__interrupt\s*\(\s*(\d+)\s*\)"
 )
+MAIN_RE = re.compile(r"\b(?:void|int)\s+main\s*\(")
+INTERRUPT_DECL_RE = re.compile(
+    r"\bvoid\s+([A-Za-z_]\w*)\s*\([^)]*\)\s*__interrupt\s*\(\s*\d+\s*\)\s*;"
+)
 
 QUIET_WARNINGS = (
     "__has_builtin",
@@ -94,6 +98,61 @@ def generate_interrupt_header(sources: list[Path], build_dir: Path) -> Path:
     lines += ["", "#endif", ""]
     header.write_text("\n".join(lines), encoding="utf-8")
     return header
+
+
+def find_main_source(sources: list[Path]) -> Path | None:
+    """找出定义 main() 的源文件。
+
+    中断声明头文件必须注入到「定义 main() 的文件」：SDCC 只在该翻译单元里
+    根据 `__interrupt` 声明生成中断向量表（maxInterrupts 由声明扩展）。
+    不能用 sources[0]——曾因把 WDT 驱动排到第一位，导致 main.c 看不到
+    `uart2_isr __interrupt (8)`，向量 8 缺失，UART2 第一次中断跳到空区
+    触发 ROMOVF 复位（板上表现为 ~125 ms 复位循环，极易误诊为看门狗/栈问题）。
+    """
+    for source in sources:
+        try:
+            text = source.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        if MAIN_RE.search(text):
+            return source
+    return None
+
+
+def check_interrupt_vectors(build_dir: Path, app_main: Path, header: Path) -> None:
+    """校验 main 模块生成的 IVT 是否覆盖了全部已声明的中断。
+
+    SDCC 的向量表只包含本翻译单元里声明/定义的中断；如果注入头文件喂错
+    文件，会静默丢掉某个向量（链接仍然成功，运行期才跳飞）。这里在构建期
+    直接比对，防止回归。
+    """
+    declared = INTERRUPT_DECL_RE.findall(
+        header.read_text(encoding="utf-8", errors="replace")
+    )
+    if not declared:
+        return
+    asm_path = build_dir / object_name(app_main).replace(".rel", ".asm")
+    if not asm_path.is_file():
+        return
+    text = asm_path.read_text(encoding="utf-8", errors="replace")
+    if "__interrupt_vect:" not in text:
+        exit_msg = f"{asm_path.name} 中没有中断向量表（__interrupt_vect）"
+        sys.exit(exit_msg)
+    block = text.split("__interrupt_vect:", 1)[1].split(
+        "__sdcc_mcs251_reset_trampoline::", 1
+    )[0]
+    missing = [
+        name
+        for name in declared
+        if not re.search(r"ejmp\s+_%s\b" % re.escape(name), block)
+    ]
+    if missing:
+        sys.exit(
+            "中断向量缺失："
+            + ", ".join(missing)
+            + f"（注入 {app_main.name} 的 IVT 未生成；"
+            "检查生成头文件是否被 --include 给了定义 main() 的源文件）"
+        )
 
 
 def object_name(source: Path) -> str:
@@ -244,7 +303,10 @@ def main() -> int:
     build_dir.mkdir(parents=True, exist_ok=True)
 
     sources = collect_sources(config, args.app)
-    app_main = rel(config["apps"][args.app]["sources"][0])
+    # 中断声明头文件必须注入到定义 main() 的翻译单元（见 find_main_source 注释）。
+    app_main = find_main_source(sources) or rel(
+        config["apps"][args.app]["sources"][0]
+    )
     header = generate_interrupt_header(sources, build_dir)
     sdcc = find_sdcc(config, args.sdcc)
 
@@ -253,6 +315,7 @@ def main() -> int:
     objects = compile_sources(
         config, sdcc, sources, build_dir, header, app_main, app_flags
     )
+    check_interrupt_vectors(build_dir, app_main, header)
     hex_path, map_path, mem_path = link(config, sdcc, objects, build_dir, args.app)
     print_memory(mem_path)
 

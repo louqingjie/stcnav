@@ -241,7 +241,6 @@ python3 tools/build.py --app vehicle_tune       # 云台调参（UART2 轮询模
 - WDT 只是兜底：它把“永久静默”变成“复位重来”，不修复根因。
 
 ### 11.2 UART2 静默根因与修复（2026-11-20）
-
 - **证据**：静默前最后一帧被截断 → TX 中断链停了；芯片不复位、任意波特率 0 字节
   → CPU/主循环可能仍在跑，只是 `S2BUF` 不再被装填；标记最后停在 `C D` 只是死锁前
   最后传出去的字符，卡点不在 `imu_update`。
@@ -280,5 +279,41 @@ python tools/uart2_log_analyze.py build/uart2_after_fix.log
 分段的频率与心跳字段、编码拒发标记 `1..7`（1=source_boot 0，2=非有限值，3=范数超差，
 4/5=0x82，6/7=0x85）、阶段标记 `B/C/D/E/F/M`（V2_POLL 前/后、remote_poll、imu_update、
 控制分支、输出）与 `t`（TX 停滞看门狗触发了一次恢复）以及静默区间。
+
+### 11.4 ROMOVF 复位事故：中断向量 8 丢失（2026-11-20，重要教训）
+
+**现象**：固件上电后 ~125 ms 一次无限复位循环；115200 段反复打印
+`VT 0 board / VT 1 bootid / VT 2 timer0`，230400 段反复打印 `VT 3 expansion`，
+`VT 4` 永不出现，0 个合法 V2 帧。一度被误诊为"WDT 读回 bug / 栈溢出"。
+
+**定位**：在 trace 构建里加 3 字节启动诊断（`0xAA <RSTFLAG> 0x55`），实测
+RSTFLAG=0x16（B4 LVDRSTF + B2 SWRSTF + **B1 ROMOVF**，上电首帧为 0x14）。
+手册 9.1.4：`ROMOVF=1 表示当前复位是由于 CPU 执行代码到非程序区导致的代码区
+溢出所触发` —— 即中断向量跳到了空区/垃圾代码。
+
+**根因**：`tools/build.py` 把生成的「中断声明头文件」注入到 `sources[0]`，而
+SDCC 只在**定义 main() 的翻译单元**里根据 `__interrupt` 声明扩展
+`maxInterrupts` 并生成 IVT。WDT 接入时把 `stc32g_wdt.c` 排到了 sources 第一位，
+头文件被喂给 WDT 驱动，`main.c` 看不到 `uart2_isr __interrupt (8)` →
+IVT 只到向量 1（Timer0），**向量 8 缺失**。第一次 UART2 发送完成中断
+（心跳第一字节发完，正好在 `VT 3 → VT 4` 之间）跳到 0xFF0043 的空区，
+执行到非程序区 → ROMOVF 复位 → 125 ms 循环。
+
+**修复**：
+1. `tools/build.py` 改为**按源码内容找定义 `main()` 的文件**（`find_main_source`）
+   注入头文件，不再依赖 sources 顺序；
+2. 构建期新增 `check_interrupt_vectors()`：解析 main 模块生成的
+   `__interrupt_vect` 块，逐一比对生成头文件里的 `__interrupt (N)` 声明，
+   缺任何向量直接让构建失败；
+3. 已确认修复后 hex 的 0xFF0043 为 `ejmp _uart2_isr`，0xFF000B 为
+   `ejmp _timer0_isr`。
+
+**教训**：
+- 改 `build_config.json` 的 `sources` 顺序不再影响 IVT（已修复），但**不要**
+  在 sources 里插非 main 文件后假设构建仍然正确——现在有构建期检查兜底；
+- 现场"复位循环"必须先读 RSTFLAG 定性（WDT/LVD/ROMOVF/SWRST/EXRST），
+  不要仅凭周期猜 WDT；`vehicle_trace` 启动段的 `0xAA <RSTFLAG> 0x55` 可用于
+  以后同类问题。
+
 
 

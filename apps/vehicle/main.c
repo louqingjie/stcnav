@@ -168,6 +168,51 @@ static void debug_print(signed short gimbal_duty)
 }
 #endif
 
+#if VEHICLE_TRACE
+/* 两位十六进制（trace 构建的启动诊断打印；不用常量表，避免额外拉动 __gptrget/CONST）。 */
+static unsigned char trace_hex_digit(unsigned char nibble)
+{
+    nibble = (unsigned char)(nibble & 0x0Fu);
+    if (nibble < 10u)
+        return (unsigned char)('0' + nibble);
+    return (unsigned char)('A' + nibble - 10u);
+}
+
+static void trace_hex8(unsigned char value)
+{
+    uart2_write_byte(trace_hex_digit((unsigned char)(value >> 4)));
+    uart2_write_byte(trace_hex_digit(value));
+}
+#endif
+
+#if VEHICLE_TRACE
+/*
+ * 仅 trace 构建：读上次复位原因 RSTFLAG（XFR 0x7EFE99，手册 9.1 复位标志表）：
+ *   B4=LVDRSTF 低压复位  B3=WDTRSTF 看门狗  B2=SWRSTF 软件复位
+ *   B1=ROMOVF  B0=EXRSTF 外部复位脚
+ * XFR 访问前提：P_SW2.7 (EAXFR)=1，MOVX 用 24 位地址（DPXL=0x7E、DPTR=0xFE99），
+ * 依据手册 11.5 节「扩展SFR 使能寄存器 EAXFR 的使用说明」。
+ */
+static __xdata unsigned char trace_xfr_shadow;
+
+static unsigned char trace_rstflag(void)
+{
+    unsigned char saved_psw2 = P_SW2;
+
+    P_SW2 = (unsigned char)(P_SW2 | 0x80); /* EAXFR = 1 */
+    __asm
+        mov     dpxl,#0x7E
+        mov     dptr,#0xFE99
+        movx    a,@dptr
+        mov     dptr,#_trace_xfr_shadow
+        mov     dpxl,#(_trace_xfr_shadow >> 16)
+        movx    @dptr,a
+    __endasm;
+    P_SW2 = saved_psw2;
+    return trace_xfr_shadow;
+}
+#endif
+
 void main(void)
 {
     /*
@@ -210,6 +255,14 @@ void main(void)
 #if VEHICLE_TRACE
     uart2_init(115200UL);
     uart2_write("\r\nVT 0 board\r\n");
+    /*
+     * trace 构建标识 + 上次复位原因（紧凑两字节格式，避免占用紧张的 app 区）：
+     *   0xAA <RSTFLAG> 0x55
+     * 看到 0xAA 即说明板上是这版固件（旧固件没有）；RSTFLAG 含义见 trace_rstflag()。
+     */
+    uart2_write_byte(0xAA);
+    uart2_write_byte(trace_rstflag());
+    uart2_write_byte(0x55);
 #endif
 
 #if !VEHICLE_DEBUG
