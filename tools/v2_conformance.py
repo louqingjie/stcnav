@@ -197,8 +197,12 @@ def main() -> int:
                 norm = math.sqrt(qx * qx + qy * qy + qz * qz + qw * qw)
                 if (values[14] & 0x01) and abs(norm - 1.0) > 1.0e-3:
                     quat_norm_bad += 1
-                # values[9] = linear_acceleration_z（specific force，静止时约 +9.81）
-                if not (5.0 <= abs(values[9]) <= 15.0):
+                # values[7..9] = linear_acceleration xyz（specific force）。
+                # IMU 不一定 +z 朝上，静止时只保证模长 ≈ 9.81 m/s²（1g）。
+                accel_norm = math.sqrt(values[7] * values[7] +
+                                       values[8] * values[8] +
+                                       values[9] * values[9])
+                if not (5.0 <= accel_norm <= 15.0):
                     accel_bad += 1
                 flags_bad += 1 if (values[14] & 0xF0) else 0
                 if beat_boot and values[12] not in beat_boot:
