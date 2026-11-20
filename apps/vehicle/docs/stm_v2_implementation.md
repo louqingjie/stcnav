@@ -117,18 +117,21 @@ Timer2，因此 **UART1 与 UART2 必须保持同一波特率 230400**；修改
 
 ## 7. `boot_id` 与 flash 布局
 
-- **vehicle / vehicle_debug 使用 0xFE0000–0xFEFFFF（64 KB）作为 app 区**，不再兼容
-  HID bootloader（0xFE0000–0xFE3DFF 被 app 占用）；请用 `tools/flash.py`（ROM ISP）
-  烧录。若必须恢复 HID bootloader 流程，需要把 app 区改回 0xFE4000 并同步裁剪固件。
-- app 区最后 512 B（0xFE_FE00–0xFE_FFFF，`V2_BOOT_SECTOR_ADDR`）保留给
-  `boot_id` 计数：上电时 IAP 读取 `'V''B''I''D'` + uint32 counter，counter+1 后
+- **vehicle / vehicle_debug 的 app 区为 0xFE0400–0xFEFDFF**。基址必须是 0xFE0400 而不是
+  0xFE0000：STC32G12K128 的 EEPROM 固定从 `FE:0000` 开始、STC-ISP 最小设 1K
+  （`FE:0000–FE:03FF`，手册 21.3.1），程序区从 `0xFE0400` 起；代码落在 EEPROM 区
+  会导致下载后跑飞/不运行。
+- 该布局不再兼容 HID bootloader（0xFE0000–0xFE3DFF）；请用 `tools/flash.py`（ROM ISP）
+  或 STC-ISP 烧录。若必须恢复 HID bootloader 流程，需要重新划分 app 区并同步裁剪固件。
+- `boot_id` 计数放在 **EEPROM 首扇区 0xFE0000–0xFE01FF**（`V2_BOOT_SECTOR_ADDR`，
+  IAP 偏移 0x0000）：上电时 IAP 读取 `'V''B''I''D'` + uint32 counter，counter+1 后
   整扇区擦除并写回，返回非零 `boot_id`。
-  * STC-ISP 下载时 “EEPROM 大小” 必须覆盖 0xFE_FE00（例如全片），否则 IAP 失败：
-    固件仍返回非零 fallback，但 boot_id 可能复用（`boot_persist_fault=1`）。
+  * STC-ISP 下载时 “EEPROM 大小” 设为 **1K**（最小即可，正好覆盖 FE:0000–FE:03FF）；
+    不必再设 64K/全片。若 IAP 失败仍返回非零 fallback，`boot_persist_fault=1`。
   * 重新烧录会擦除该扇区，计数从 1 重新开始；Host 若保留退役 boot 表，重刷后
     请重启 Host 会话。
 - 代码/常量上限 `code_end = 0xFEFDFF`，由 `tools/check_layout.py` 强制；当前
-  vehicle 使用约 63.3 KB（余量约 1.9 KB，新增代码需先做尺寸评估）。
+  vehicle 使用约 63.3 KB（从 0xFE0400 起算，余量约 0.7 KB，新增代码需先做尺寸评估）。
 - XRAM 约 2.0 KB / 8 KB；EDATA 栈约 89 B（`--stack-auto`），新代码禁止大局部变量。
 
 ## 8. 构建、烧录与自检

@@ -49,8 +49,12 @@
 #define V2_ENABLE_MOTION 1
 /* bit0 chassis command | bit2 gimbal | bit5 heading | bit8 attitude */
 #define V2_CAPABILITIES 0x00000125UL
-/* app 区最后 512 B 的保留扇区，用于上电 boot_id 计数。 */
-#define V2_BOOT_SECTOR_ADDR 0xFEFE00UL
+/*
+ * boot_id 计数扇区：放在 EEPROM 区首扇区。
+ * STC32G12K128 的 EEPROM 固定从 FE:0000 开始、STC-ISP 最小 1K（FE:0000-FE:03FF，
+ * 手册 21.3.1），IAP 偏移即 0x0000；app 代码从 0xFE0400 开始，与该扇区不重叠。
+ */
+#define V2_BOOT_SECTOR_ADDR 0xFE0000UL
 
 /* ---------- 控制周期 ---------- */
 #define CONTROL_PERIOD_MS 10

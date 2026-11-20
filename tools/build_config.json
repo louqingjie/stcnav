@@ -110,7 +110,7 @@
         "libs/stc32g/hal/src/stc32g_uart2.c",
         "libs/stc32g/hal/src/stc32g_iap.c"
       ],
-      "code_start": "0xFE0000",
+      "code_start": "0xFE0400",
       "code_end": "0xFEFDFF",
       "free_rtos": false
     },
@@ -127,7 +127,7 @@
         "apps/vehicle/v2_selftest.c",
         "libs/stc32g/hal/src/stc32g_i2c.c"
       ],
-      "code_start": "0xFE0000",
+      "code_start": "0xFE0400",
       "code_end": "0xFEFDFF",
       "free_rtos": false
     },
@@ -228,8 +228,8 @@
   },
   "per_app_ldflags": {
     "bootloader": ["-Wl-b GSINIT0=0xfe0000"],
-    "vehicle": ["-Wl-b GSINIT0=0xfe0000"],
-    "vehicle_debug": ["-Wl-b GSINIT0=0xfe0000"]
+    "vehicle": ["-Wl-b GSINIT0=0xfe0400"],
+    "vehicle_debug": ["-Wl-b GSINIT0=0xfe0400"]
   },
   "per_file_cflags": {
     "port.c": ["--opt-code-speed"],
