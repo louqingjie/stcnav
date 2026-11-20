@@ -34,6 +34,19 @@
 #define V2_SET_READY(value) v2_link_set_ready(value)
 #endif
 
+/*
+ * 启动进度打印（仅 -DVEHICLE_TRACE=1 的调试构建，正式构建不产生任何代码）。
+ * v2_link_init 之前走 UART2 轮询 115200；之后走中断异步 230400。
+ */
+#if VEHICLE_TRACE
+#define VT_POLL(text) uart2_write(text)
+#define VT_PUSH(text) \
+    uart2_tx_push((const unsigned char *)(text), (unsigned int)(sizeof(text) - 1u))
+#else
+#define VT_POLL(text) ((void)0)
+#define VT_PUSH(text) ((void)0)
+#endif
+
 #define TIMER0_RELOAD ((unsigned int)(65536UL - (FOSC / 1000UL)))
 
 #define OWNER_NONE 0
@@ -174,16 +187,23 @@ void main(void)
 
     board_init();
 
+#if VEHICLE_TRACE
+    uart2_init(115200UL);
+    uart2_write("\r\nVT 0 board\r\n");
+#endif
+
 #if !VEHICLE_DEBUG
-    /* boot_id 持久化在 app 区最后 512 B 扇区（STC-ISP 需配置 EEPROM 区）。 */
+    /* boot_id 持久化在 EEPROM 首扇区（STC-ISP 需配置 EEPROM 区）。 */
     boot_id = v2_boot_id_load();
 #endif
+    VT_POLL("VT 1 bootid\r\n");
 
     timer0_init(TIMER0_RELOAD);
     ms_ticks = 0;
     ET0 = 1;
     EA = 1;
     timer0_start();
+    VT_POLL("VT 2 timer0\r\n");
 
 #if VEHICLE_DEBUG
     uart1_init(V2_UART_BAUD, 3);
@@ -194,11 +214,14 @@ void main(void)
         uart1_write("V2SELFTEST FAIL\r\n");
 #else
     expansion_init();
+    VT_POLL("VT 3 expansion\r\n");
     /* V2 链路尽早启动：上位机立即看到 boot_id/capability（ready=0）。 */
     v2_link_init(boot_id, millis());
+    VT_PUSH("VT 4 link\r\n");
 #endif
 
     i2c_init();
+    VT_PUSH("VT 5 i2c\r\n");
 
 #if VEHICLE_DEBUG
     uart1_write("IMU INIT...\r\n");
@@ -209,6 +232,7 @@ void main(void)
         uart1_write("IMU FAIL\r\n");
 #else
         expansion_stop();
+        VT_PUSH("VT 6 imu retry\r\n");
 #endif
         V2_SERVICE_WAIT(500);
     }
