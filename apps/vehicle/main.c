@@ -201,7 +201,9 @@ void main(void)
      * 看门狗：35 MHz、WDT_PS=6 -> 约 1.44 s。主循环/长延时/启动等待都会喂狗；
      * 一旦卡死则自动复位重来（boot_id 会递增），不会永久静默。
      */
+#ifndef VEHICLE_NO_WDT
     wdt_init(6);
+#endif
 
 #if VEHICLE_TRACE
     uart2_init(115200UL);
