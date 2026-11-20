@@ -109,6 +109,7 @@
     },
     "vehicle": {
       "sources": [
+        "libs/stc32g/hal/src/stc32g_wdt.c",
         "apps/vehicle/main.c",
         "apps/vehicle/remote.c",
         "apps/vehicle/expansion.c",
@@ -128,6 +129,7 @@
     },
     "vehicle_debug": {
       "sources": [
+        "libs/stc32g/hal/src/stc32g_wdt.c",
         "apps/vehicle/main.c",
         "apps/vehicle/remote.c",
         "apps/vehicle/expansion.c",
@@ -145,6 +147,7 @@
     },
     "vehicle_trace": {
       "sources": [
+        "libs/stc32g/hal/src/stc32g_wdt.c",
         "apps/vehicle/main.c",
         "apps/vehicle/remote.c",
         "apps/vehicle/expansion.c",
