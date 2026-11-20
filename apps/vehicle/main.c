@@ -19,7 +19,6 @@
 #include "timebase.h"
 #include "common.h"
 #include "stc32g_timer.h"
-#include "stc32g_wdt.h"
 #include "stc32g_uart.h"
 #include "stc32g_i2c.h"
 #if VEHICLE_DEBUG
@@ -83,7 +82,6 @@ void delay_ms(unsigned int ms)
 
     while ((unsigned int)(millis() - start) < ms)
     {
-        wdt_feed();
     }
 }
 
@@ -94,10 +92,7 @@ static void service_wait(unsigned int wait_ms)
     unsigned int start = millis();
 
     while ((unsigned int)(millis() - start) < wait_ms)
-    {
-        wdt_feed();
         v2_link_poll(millis(), 0);
-    }
 }
 #endif
 
@@ -197,12 +192,6 @@ void main(void)
 
     board_init();
 
-    /*
-     * 看门狗：35 MHz、WDT_PS=6 -> 约 1.44 s。主循环/长延时/启动等待都会喂狗；
-     * 一旦卡死则自动复位重来（boot_id 会递增），不会永久静默。
-     */
-    wdt_init(6);
-
 #if VEHICLE_TRACE
     uart2_init(115200UL);
     uart2_write("\r\nVT 0 board\r\n");
@@ -285,7 +274,6 @@ void main(void)
 
     for (;;)
     {
-        wdt_feed();
         now = millis();
         VT_PUSH("B");
 
